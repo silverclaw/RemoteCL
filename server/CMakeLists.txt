@@ -38,6 +38,6 @@ set_target_properties(RemoteCLServer PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQ
 option(ENABLE_SERVER "Build the server component" ON)
 if (ENABLE_SERVER)
 	set_target_properties(RemoteCLServer PROPERTIES EXCLUDE_FROM_ALL FALSE)
-	cpack_add_component(client DESCRIPTION "RemoteCL client library.")
 	install(TARGETS RemoteCLServer DESTINATION bin COMPONENT server)
+	cpack_add_component(server DESCRIPTION "RemoteCL server executable.")
 endif(ENABLE_SERVER)
