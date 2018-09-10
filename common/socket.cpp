@@ -70,6 +70,19 @@ RemoteCL::Socket::Socket()
 	if (mSocket == InvalidSocket) {
 		throw Error();
 	}
+#if !defined(REMOTECL_DISABLE_KEEP_ALIVE)
+#if defined(WIN32)
+	using ValTy = const char*;
+#else // everyone else
+	using ValTy = const void*;
+#endif // WIN32
+	int val = -1;
+	int result = setsockopt(mSocket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<ValTy>(&val), sizeof(val));
+	if (result != 0) {
+		// This isn't a fatal failure; use the socket as-is.
+		std::cerr << "Could not enable socket keep-alive." << std::endl;
+	}
+#endif // REMOTECL_DISABLE_KEEP_ALIVE
 }
 
 RemoteCL::Socket::Socket(uint16_t port) : Socket()

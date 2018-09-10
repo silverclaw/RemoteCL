@@ -16,6 +16,11 @@ if (ZLIB_FOUND)
 	endif()
 endif (ZLIB_FOUND)
 
+option(REMOTECL_ENABLE_KEEPALIVE "Enables the TCP Socket keep-alive pings." ON)
+if (NOT REMOTECL_ENABLE_KEEPALIVE)
+	target_compile_definitions(RemoteCL PRIVATE REMOTECL_DISABLE_KEEP_ALIVE=1)
+endif (NOT REMOTECL_ENABLE_KEEPALIVE)
+
 set(REMOTECL_DEFAULT_PORT 23857 CACHE STRING "The default port used by the client and server.")
 
 # I wanted this in the project-level cmake, but add_compile_definitions requires a too-recent CMake version.
