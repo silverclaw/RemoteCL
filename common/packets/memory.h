@@ -15,7 +15,7 @@
 
 #if !defined(REMOTECL_PACKET_MEMORY_H)
 #define REMOTECL_PACKET_MEMORY_H
-/// @file memory.h Defines packets for memory object manipulation.
+/// @file memory.h Defines packets for buffer object manipulation.
 
 #include "idtype.h"
 #include "packets/packet.h"
@@ -43,26 +43,6 @@ struct CreateSubBuffer final : public Packet
 	uint32_t mCreateType;
 
 	IDType mBufferID;
-};
-
-struct CreateImage final : public Packet
-{
-	CreateImage() : Packet(PacketType::CreateImage) {}
-
-	uint32_t mFlags;
-	uint32_t mChannelOrder;
-	uint32_t mChannelType;
-	uint32_t mImageType;
-	uint32_t mWidth;
-	uint32_t mHeight;
-	uint32_t mDepth;
-	uint32_t mArraySize;
-	uint32_t mRowPitch;
-	uint32_t mSlicePitch;
-	uint32_t mMipLevels;
-	uint32_t mSamples;
-
-	IDType mContextID;
 };
 
 inline SocketStream& operator <<(SocketStream& o, const CreateBuffer& b)
@@ -103,44 +83,6 @@ inline SocketStream& operator >>(SocketStream& i, CreateSubBuffer& b)
 	i >> b.mOffset;
 	i >> b.mCreateType;
 	i >> b.mBufferID;
-
-	return i;
-}
-
-inline SocketStream& operator <<(SocketStream& o, const CreateImage& img)
-{
-	o << img.mFlags;
-	o << img.mChannelOrder;
-	o << img.mChannelType;
-	o << img.mImageType;
-	o << img.mWidth;
-	o << img.mHeight;
-	o << img.mDepth;
-	o << img.mArraySize;
-	o << img.mRowPitch;
-	o << img.mSlicePitch;
-	o << img.mMipLevels;
-	o << img.mSamples;
-	o << img.mContextID;
-
-	return o;
-}
-
-inline SocketStream& operator >>(SocketStream& i, CreateImage& img)
-{
-	i >> img.mFlags;
-	i >> img.mChannelOrder;
-	i >> img.mChannelType;
-	i >> img.mImageType;
-	i >> img.mWidth;
-	i >> img.mHeight;
-	i >> img.mDepth;
-	i >> img.mArraySize;
-	i >> img.mRowPitch;
-	i >> img.mSlicePitch;
-	i >> img.mMipLevels;
-	i >> img.mSamples;
-	i >> img.mContextID;
 
 	return i;
 }

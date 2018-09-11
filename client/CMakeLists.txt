@@ -7,6 +7,7 @@ add_library(RemoteCLClient EXCLUDE_FROM_ALL SHARED
 	device.cpp
 	event.cpp
 	icd.cpp
+	image.cpp
 	kernel.cpp
 	memory.cpp
 	platform.cpp

@@ -6,6 +6,7 @@ add_executable(RemoteCLServer EXCLUDE_FROM_ALL
 	context.cpp
 	device.cpp
 	event.cpp
+	image.cpp
 	memory.cpp
 	program.cpp
 	queue.cpp
