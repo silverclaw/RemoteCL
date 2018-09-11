@@ -51,6 +51,7 @@ enum class PacketType : uint8_t
 	// Command Queue functions.
 	CreateQueue,
 	CreateQueueWithProp,
+	GetQueueInfo,
 	Flush,
 	Finish,
 

@@ -152,6 +152,9 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::CreateQueueWithProp:
 			createQueueWithProp();
 			break;
+		case PacketType::GetQueueInfo:
+			getQueueInfo();
+			break;
 
 		case PacketType::Flush:
 			flushQueue();

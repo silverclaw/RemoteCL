@@ -52,6 +52,7 @@ private:
 
 	void createQueue();
 	void createQueueWithProp();
+	void getQueueInfo();
 	void flushQueue();
 	void finishQueue();
 

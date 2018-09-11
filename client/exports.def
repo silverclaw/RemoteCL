@@ -21,6 +21,7 @@ clEnqueueReadImage
 clEnqueueWriteBuffer
 clFinish
 clFlush
+clGetCommandQueueInfo
 clGetContextInfo
 clGetDeviceIDs
 clGetDeviceInfo

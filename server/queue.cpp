@@ -22,6 +22,7 @@
 #include "hints.h"
 #include "packets/queue.h"
 #include "packets/IDs.h"
+#include "packets/payload.h"
 
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
@@ -73,6 +74,58 @@ void ServerInstance::createQueueWithProp()
 	// Support for this was disabled.
 	mStream.write<ErrorPacket>(CL_INVALID_OPERATION);
 #endif
+}
+
+void ServerInstance::getQueueInfo()
+{
+	auto query = mStream.read<IDParamPair<PacketType::GetQueueInfo>>();
+
+	cl_command_queue queue = getObj<cl_command_queue>(query.mID);
+	cl_command_queue_info param = query.mData;
+	std::size_t retSize = 0;
+
+	switch (param) {
+		// These queries must be ID-translated.
+		case CL_QUEUE_CONTEXT: {
+			cl_context context;
+			cl_int err = clGetCommandQueueInfo(queue, param, sizeof(cl_context), &context, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write<IDPacket>({getIDFor(context)});
+			break;
+		}
+		case CL_QUEUE_DEVICE: {
+			cl_device_id device;
+			cl_int err = clGetCommandQueueInfo(queue, param, sizeof(cl_device_id), &device, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write<IDPacket>({getIDFor(device)});
+			break;
+		}
+
+		// All others, just memcpy whatever the server returned.
+		default: {
+			cl_int err = clGetCommandQueueInfo(queue, param, 0, nullptr, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			std::vector<uint8_t> data;
+			data.resize(retSize);
+
+			err = clGetCommandQueueInfo(queue, param, data.size(), data.data(), &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write(PayloadPtr<uint8_t>(data.data(), retSize));
+			break;
+		}
+	}
 }
 
 void ServerInstance::flushQueue()

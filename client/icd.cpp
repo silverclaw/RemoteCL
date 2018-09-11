@@ -31,7 +31,7 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	clCreateCommandQueue,
 	clRetainCommandQueue,
 	clReleaseCommandQueue,
-	nullptr, //clGetCommandQueueInfo,
+	clGetCommandQueueInfo,
 	nullptr, //clSetCommandQueueProperty,
 	clCreateBuffer,
 	clCreateImage2D,
