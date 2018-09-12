@@ -19,6 +19,7 @@ clEnqueueNDRangeKernel
 clEnqueueReadBuffer
 clEnqueueReadImage
 clEnqueueWriteBuffer
+clEnqueueWriteImage
 clFinish
 clFlush
 clGetCommandQueueInfo
