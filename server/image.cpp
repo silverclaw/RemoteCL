@@ -160,3 +160,44 @@ void ServerInstance::writeImage()
 		mStream.write<SuccessPacket>({});
 	}
 }
+
+void ServerInstance::getImageInfo()
+{
+	auto query = mStream.read<IDParamPair<PacketType::GetImageInfo>>();
+
+	cl_mem image = getObj<cl_mem>(query.mID);
+	cl_mem_info param = query.mData;
+	std::size_t retSize = 0;
+
+	switch (query.mData) {
+		case CL_IMAGE_BUFFER: {
+			cl_mem parent;
+			cl_int err = clGetImageInfo(image, param, sizeof(cl_mem), &parent, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write<IDPacket>({getIDFor(parent)});
+			break;
+		}
+
+		// All others, just memcpy whatever the server returned.
+		default: {
+			cl_int err = clGetImageInfo(image, param, 0, nullptr, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			std::vector<uint8_t> data;
+			data.resize(retSize);
+
+			err = clGetImageInfo(image, param, data.size(), data.data(), &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write(PayloadPtr<uint8_t>(data.data(), retSize));
+			break;
+		}
+	}
+}

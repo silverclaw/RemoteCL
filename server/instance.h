@@ -71,6 +71,7 @@ private:
 	void createImage();
 	void readImage();
 	void writeImage();
+	void getImageInfo();
 
 	void createBuffer();
 	void createSubBuffer();

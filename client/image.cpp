@@ -234,3 +234,60 @@ clCreateImage3D(cl_context context, cl_mem_flags flags,
 	desc.image_type = CL_MEM_OBJECT_IMAGE3D;
 	return clCreateImage(context, flags, image_format, &desc, host_ptr, errcode_ret);
 }
+
+namespace
+{
+template<typename T>
+void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
+{
+	if (availableSize >= sizeof(T)) {
+		*(reinterpret_cast<T*>(ptr)) = data;
+	}
+	if (sizeRet != nullptr) {
+		*sizeRet = sizeof(T);
+	}
+}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clGetImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size,
+               void* param_value, size_t* param_value_size_ret) CL_API_SUFFIX__VERSION_1_0
+{
+	if (image == nullptr) return CL_INVALID_MEM_OBJECT;
+
+	try {
+		IDParamPair<PacketType::GetImageInfo> query;
+		query.mID = GetID(image);
+		query.mData = param_name;
+
+		auto contextLock(gConnection.getLock());
+		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+
+		stream.write(query).flush();
+
+		switch (param_name) {
+			case CL_IMAGE_BUFFER: {
+				MemObject& id = gConnection.getOrInsertObject<MemObject>(stream.read<IDPacket>());
+				Store<cl_mem>(id, param_value, param_value_size, param_value_size_ret);
+				break;
+			}
+
+			default: {
+				// The only other queries are image properties which should fit in 4 bytes.
+				Payload<uint8_t> payload = stream.read<Payload<uint8_t>>();
+				if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
+				if (param_value && param_value_size >= payload.mData.size()) {
+					std::memcpy(param_value, payload.mData.data(), payload.mData.size());
+				}
+			}
+			break;
+		}
+		return CL_SUCCESS;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (const std::bad_alloc&) {
+		return CL_OUT_OF_HOST_MEMORY;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
