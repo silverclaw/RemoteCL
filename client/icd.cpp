@@ -39,7 +39,7 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	clRetainMemObject,
 	clReleaseMemObject,
 	clGetSupportedImageFormats,
-	nullptr, //clGetMemObjectInfo,
+	clGetMemObjectInfo,
 	nullptr, //clGetImageInfo,
 	nullptr, //clCreateSampler,
 	nullptr, //clRetainSampler,

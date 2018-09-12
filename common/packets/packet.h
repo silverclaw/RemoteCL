@@ -75,6 +75,7 @@ enum class PacketType : uint8_t
 	ReadBuffer,
 	WriteBuffer,
 	FillBuffer,
+	GetMemObjInfo,
 
 	// Image functions.
 	CreateImage,

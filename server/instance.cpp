@@ -178,6 +178,9 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::FillBuffer:
 			fillBuffer();
 			break;
+		case PacketType::GetMemObjInfo:
+			getMemObjInfo();
+			break;
 
 		case PacketType::CreateImage:
 			createImage();

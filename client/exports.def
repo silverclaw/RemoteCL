@@ -28,6 +28,7 @@ clGetDeviceInfo
 clGetKernelArgInfo
 clGetKernelInfo
 clGetKernelWorkGroupInfo
+clGetMemObjectInfo
 clGetPlatformIDs
 clGetPlatformInfo
 clGetProgramBuildInfo

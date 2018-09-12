@@ -78,6 +78,8 @@ private:
 	void writeBuffer();
 	void fillBuffer();
 
+	void getMemObjInfo();
+
 	void enqueueKernel();
 
 	void waitForEvents();

@@ -167,3 +167,54 @@ void ServerInstance::fillBuffer()
 	}
 	mStream.write<SuccessPacket>({});
 }
+
+void ServerInstance::getMemObjInfo()
+{
+	auto query = mStream.read<IDParamPair<PacketType::GetMemObjInfo>>();
+
+	cl_mem obj = getObj<cl_mem>(query.mID);
+	cl_mem_info param = query.mData;
+	std::size_t retSize = 0;
+
+	switch (query.mData) {
+		case CL_MEM_CONTEXT: {
+			cl_context context;
+			cl_int err = clGetMemObjectInfo(obj, param, sizeof(cl_context), &context, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write<IDPacket>({getIDFor(context)});
+			break;
+		}
+		case CL_MEM_ASSOCIATED_MEMOBJECT: {
+			cl_mem parent;
+			cl_int err = clGetMemObjectInfo(obj, param, sizeof(cl_mem), &parent, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write<IDPacket>({getIDFor(parent)});
+			break;
+		}
+
+		// All others, just memcpy whatever the server returned.
+		default: {
+			cl_int err = clGetMemObjectInfo(obj, param, 0, nullptr, &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			std::vector<uint8_t> data;
+			data.resize(retSize);
+
+			err = clGetMemObjectInfo(obj, param, data.size(), data.data(), &retSize);
+			if (Unlikely(err != CL_SUCCESS)) {
+				mStream.write<ErrorPacket>(err);
+				return;
+			}
+			mStream.write(PayloadPtr<uint8_t>(data.data(), retSize));
+			break;
+		}
+	}
+}

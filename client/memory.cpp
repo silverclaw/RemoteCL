@@ -253,6 +253,71 @@ clCreateSubBuffer(cl_mem buffer, cl_mem_flags flags, cl_buffer_create_type buffe
 	}
 }
 
+namespace
+{
+template<typename T>
+void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
+{
+	if (availableSize >= sizeof(T)) {
+		*(reinterpret_cast<T*>(ptr)) = data;
+	}
+	if (sizeRet != nullptr) {
+		*sizeRet = sizeof(T);
+	}
+}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clGetMemObjectInfo(cl_mem memobj, cl_mem_info param_name, size_t param_value_size,
+                   void* param_value, size_t* param_value_size_ret) CL_API_SUFFIX__VERSION_1_0
+{
+	if (memobj == nullptr) return CL_INVALID_MEM_OBJECT;
+
+	try {
+		IDParamPair<PacketType::GetMemObjInfo> query;
+		query.mID = GetID(memobj);
+		query.mData = param_name;
+
+		auto contextLock(gConnection.getLock());
+		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+
+		stream.write(query).flush();
+
+		switch (param_name) {
+			// These queries must be ID-translated.
+			case CL_MEM_CONTEXT: {
+				Context& id = gConnection.getOrInsertObject<Context>(stream.read<IDPacket>());
+				Store<cl_context>(id, param_value, param_value_size, param_value_size_ret);
+				break;
+			}
+			case CL_MEM_ASSOCIATED_MEMOBJECT: {
+				MemObject& id = gConnection.getOrInsertObject<MemObject>(stream.read<IDPacket>());
+				Store<cl_mem>(id, param_value, param_value_size, param_value_size_ret);
+				break;
+			}
+
+			// All others, just memcpy whatever the server returned.
+			default: {
+				// The only other queries are sizes and refcount properties,
+				// which should fit in 4 bytes.
+				Payload<uint8_t> payload = stream.read<Payload<uint8_t>>();
+				if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
+				if (param_value && param_value_size >= payload.mData.size()) {
+					std::memcpy(param_value, payload.mData.data(), payload.mData.size());
+				}
+			}
+			break;
+		}
+		return CL_SUCCESS;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (const std::bad_alloc&) {
+		return CL_OUT_OF_HOST_MEMORY;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainMemObject(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0
 {
