@@ -95,6 +95,74 @@ clEnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blockin
 	}
 }
 
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_write,
+                    const size_t* origin, const size_t* region,
+                    size_t input_row_pitch, size_t input_slice_pitch,
+                    const void* ptr,
+                    cl_uint num_events_in_wait_list, const cl_event* event_wait_list,
+                    cl_event* event) CL_API_SUFFIX__VERSION_1_0
+{
+	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
+	if (image == nullptr) return CL_INVALID_MEM_OBJECT;
+
+	try {
+		WriteImage E;
+
+		E.mRowPitch = input_row_pitch;
+		E.mSlicePitch = input_slice_pitch;
+		E.mBlock = blocking_write;
+
+		if (event) E.mWantEvent = true;
+		IDListPacket eventList;
+		if (num_events_in_wait_list) {
+			if (!event_wait_list) return CL_INVALID_EVENT_WAIT_LIST;
+			E.mExpectEventList = true;
+			eventList.mIDs.reserve(num_events_in_wait_list);
+			for (unsigned i = 0; i < num_events_in_wait_list; ++i) {
+				if (!event_wait_list[i]) return CL_INVALID_EVENT;
+				eventList.mIDs.push_back(GetID(event_wait_list[i]));
+			}
+		}
+
+		E.mOrigin[0] = origin[0];
+		E.mOrigin[1] = origin[1];
+		E.mOrigin[2] = origin[2];
+		E.mRegion[0] = region[0];
+		E.mRegion[1] = region[1];
+		E.mRegion[2] = region[2];
+
+		E.mImageID = GetID(image);
+		E.mQueueID = GetID(command_queue);
+
+		auto contextLock(gConnection.getLock());
+		GetStream(stream, CL_SUCCESS);
+
+		stream.write(E);
+		if (num_events_in_wait_list) {
+			stream.write(eventList);
+		}
+		stream.flush();
+
+		// We need to know how big the input buffer is. This depends on image format,
+		// which will be known by the server, so wait for the server to tell us
+		// how much data will be required.
+		auto dataSize = stream.read<SimplePacket<PacketType::Payload, uint32_t>>();
+		// Push out the image data.
+		stream.write<PayloadPtr<>>({ptr, dataSize}).flush();
+
+		if (event) *event = gConnection.registerID<Event>(stream.read<IDPacket>());
+		else stream.read<SuccessPacket>();
+		return CL_SUCCESS;
+	} catch (const std::bad_alloc&) {
+		return CL_OUT_OF_HOST_MEMORY;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
 SO_EXPORT CL_API_ENTRY cl_mem CL_API_CALL
 clCreateImage(cl_context context, cl_mem_flags flags,
               const cl_image_format* image_format, const cl_image_desc* image_desc,

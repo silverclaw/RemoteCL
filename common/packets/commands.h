@@ -41,9 +41,10 @@ struct EnqueueKernel final : public Packet
 	bool mExpectEventList = false;
 };
 
-struct ReadImage final : public Packet
+template<PacketType Type>
+struct ImageRW final : public Packet
 {
-	ReadImage() noexcept : Packet(PacketType::ReadImage) {}
+	ImageRW() noexcept : Packet(Type) {}
 
 	IDType mImageID;
 	IDType mQueueID;
@@ -54,6 +55,9 @@ struct ReadImage final : public Packet
 	bool mExpectEventList = false;
 	bool mBlock;
 };
+
+using ReadImage = ImageRW<PacketType::ReadImage>;
+using WriteImage = ImageRW<PacketType::WriteImage>;
 
 template<PacketType Type>
 struct BufferRW final : public Packet
@@ -120,7 +124,8 @@ inline SocketStream& operator >>(SocketStream& i, EnqueueKernel& E)
 	return i;
 }
 
-inline SocketStream& operator <<(SocketStream& o, const ReadImage& E)
+template<PacketType Type>
+SocketStream& operator <<(SocketStream& o, const ImageRW<Type>& E)
 {
 	o << E.mImageID;
 	o << E.mQueueID;
@@ -138,7 +143,8 @@ inline SocketStream& operator <<(SocketStream& o, const ReadImage& E)
 	return o;
 }
 
-inline SocketStream& operator >>(SocketStream& i, ReadImage& E)
+template<PacketType Type>
+SocketStream& operator >>(SocketStream& i, ImageRW<Type>& E)
 {
 	i >> E.mImageID;
 	i >> E.mQueueID;

@@ -79,6 +79,7 @@ enum class PacketType : uint8_t
 	// Image functions.
 	CreateImage,
 	ReadImage,
+	WriteImage,
 
 	// Commands.
 	EnqueueKernel,

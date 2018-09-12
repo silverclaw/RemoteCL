@@ -185,6 +185,9 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::ReadImage:
 			readImage();
 			break;
+		case PacketType::WriteImage:
+			writeImage();
+			break;
 
 		case PacketType::EnqueueKernel:
 			enqueueKernel();

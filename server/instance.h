@@ -70,6 +70,7 @@ private:
 
 	void createImage();
 	void readImage();
+	void writeImage();
 
 	void createBuffer();
 	void createSubBuffer();
