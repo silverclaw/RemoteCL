@@ -48,7 +48,7 @@ SocketStream& operator >>(SocketStream& i, SimplePacket<Type, T>& packet)
 }
 
 using ErrorPacket = SimplePacket<PacketType::Error, int32_t>;
-/// De-serialises an error Packet and throws it as an expection.
+/// De-serialises an error Packet and throws it as an exception.
 inline void ThrowErrorPacket(SocketStream& i)
 {
 	RemoteCL::ErrorPacket e;
