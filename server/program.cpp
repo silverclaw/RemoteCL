@@ -214,6 +214,23 @@ void ServerInstance::createKernel()
 	}
 }
 
+void ServerInstance::cloneKernel()
+{
+#if (CL_TARGET_OPENCL_VERSION >= 210)
+	auto ID = mStream.read<SimplePacket<PacketType::CloneKernel, IDType>>();
+	cl_kernel kernel = getObj<cl_kernel>(ID);
+	cl_int err = CL_SUCCESS;
+	cl_kernel clone = clCloneKernel(kernel, &err);
+	if (Unlikely(err != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(err);
+	} else {
+		mStream.write<IDPacket>(getIDFor(clone));
+	}
+#else
+	mStream.write<ErrorPacket>(CL_INVALID_OPERATION);
+#endif
+}
+
 void ServerInstance::setKernelArg()
 {
 	KernelArg arg = mStream.read<KernelArg>();

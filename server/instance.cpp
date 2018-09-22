@@ -133,6 +133,9 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::CreateKernel:
 			createKernel();
 			break;
+		case PacketType::CloneKernel:
+			cloneKernel();
+			break;
 		case PacketType::SetKernelArg:
 			setKernelArg();
 			break;

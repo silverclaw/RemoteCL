@@ -53,3 +53,6 @@ clRetainProgram
 clSetKernelArg
 clSetUserEventStatus
 clWaitForEvents
+
+;CL2.1
+;clCloneKernel

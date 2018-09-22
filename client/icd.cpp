@@ -165,7 +165,11 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clGetKernelSubGroupInfoKHR,
 
 	// CL 2.1 supported features.
+#if (CL_TARGET_OPENCL_VERSION >= 210)
+	clCloneKernel,
+#else
 	nullptr, //clCloneKernel,
+#endif
 	nullptr, //clCreateProgramWithIL,
 	nullptr, //clEnqueueSVMMigrateMem,
 	nullptr, //clGetDeviceAndHostTimer,

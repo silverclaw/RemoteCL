@@ -63,6 +63,7 @@ private:
 	void getProgramInfo();
 
 	void createKernel();
+	void cloneKernel();
 	void setKernelArg();
 	void getKernelInfo();
 	void getKernelArgInfo();

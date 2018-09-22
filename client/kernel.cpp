@@ -294,6 +294,29 @@ clGetKernelArgInfo(cl_kernel kernel, cl_uint arg_indx, cl_kernel_arg_info param_
 	}
 }
 
+#if (CL_TARGET_OPENCL_VERSION >= 210)
+SO_EXPORT CL_API_ENTRY cl_kernel CL_API_CALL
+clCloneKernel(cl_kernel source_kernel, cl_int* errcode_ret) CL_API_SUFFIX__VERSION_2_1
+{
+	if (source_kernel == nullptr) ReturnError(CL_INVALID_KERNEL);
+
+	try {
+		auto contextLock(gConnection.getLock());
+		GetStream(stream, CL_SUCCESS);
+		stream.write<SimplePacket<PacketType::CloneKernel, IDType>>({GetID(source_kernel)}).flush();
+		IDType kernelID = stream.read<IDPacket>();
+		if (errcode_ret) *errcode_ret = CL_SUCCESS;
+		return gConnection.registerID<Kernel>(kernelID);
+	} catch (const std::bad_alloc&) {
+		ReturnError(CL_OUT_OF_HOST_MEMORY);
+	} catch (const ErrorPacket& e) {
+		ReturnError(e.mData);
+	} catch (...) {
+		ReturnError(CL_DEVICE_NOT_AVAILABLE);
+	}
+}
+#endif
+
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainKernel(cl_kernel kernel) CL_API_SUFFIX__VERSION_1_0
 {
