@@ -51,8 +51,6 @@ Under CMake, you can pick if you want to build the server, or the client, or bot
 
 You can (should) set the OpenCL version you want to support (or the one supported by your platform) by setting `CL_TARGET_OPENCL_VERSION` (which defaults to 220). Attempting to support a version above the one your platform exposes might lead to link errors or runtime crashes.
 
-A client can connect to a server with a higher or equal supported CL version, but not lower.
-
 The server option `REMOTECL_SERVER_USE_THREADS` (default off) will make the server spawn a thread instead of forking the parent process when a connection is accepted. This decreases security as there is no memory separation as well as possibly being unsafe if one of the connections causes a crash (for example, on a wild pointer). It does, however, make it easier to debug without having to set up follow-child process.
 
 The option `REMOTECL_ENABLE_ZLIB` will make large data packets be zlib compressed before being sent through the network. The minimum size of the packet to be compressed is set in-source (see `packet/payload.h`). You may want to disable this if your cross-compile setup does not have zlib or if you're on a fast local network, where compressing would just waste time. Note that a server and client with different zlib configurations will not connect.

@@ -1,6 +1,7 @@
 EXPORTS
 
 clBuildProgram
+clCloneKernel
 clCreateBuffer
 clCreateCommandQueue
 clCreateCommandQueueWithProperties
@@ -53,6 +54,3 @@ clRetainProgram
 clSetKernelArg
 clSetUserEventStatus
 clWaitForEvents
-
-;CL2.1
-;clCloneKernel

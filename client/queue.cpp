@@ -68,7 +68,6 @@ clCreateCommandQueue(cl_context context, cl_device_id device,
 	}
 }
 
-#if (CL_TARGET_OPENCL_VERSION >= 200)
 SO_EXPORT CL_API_ENTRY cl_command_queue CL_API_CALL
 clCreateCommandQueueWithProperties(cl_context context, cl_device_id device, const cl_queue_properties* properties,
                                    cl_int* errcode_ret) CL_API_SUFFIX__VERSION_2_0
@@ -106,7 +105,6 @@ clCreateCommandQueueWithProperties(cl_context context, cl_device_id device, cons
 		ReturnError(CL_DEVICE_NOT_AVAILABLE);
 	}
 }
-#endif
 
 namespace
 {

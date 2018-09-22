@@ -31,12 +31,9 @@ struct VersionPacket : public Packet
 	VersionPacket() noexcept : Packet(PacketType::Version)
 	{
 		std::size_t i = 0;
-		// Current version 0.1
-		mVersion[i++] = '0';
-		mVersion[i++] = '.';
-		mVersion[i++] = '1';
+		mVersion[i++] = REMOTECL_VERSION_MAJ;
+		mVersion[i++] = REMOTECL_VERSION_MIN;
 		mVersion[i++] = ' ';
-		mVersion[i++] = CL_TARGET_OPENCL_VERSION;
 		mVersion[i++] = sizeof(IDType);
 
 		// Append any enabled features
@@ -57,15 +54,6 @@ struct VersionPacket : public Packet
 			}
 			++i;
 		} while (mVersion[i] != ' ' && v.mVersion[i] != ' ');
-		++i;
-
-		// After the blank space, the targeted CL version is encoded.
-		// "v" will be the server version; a server may have a target OpenCL version greater
-		// than the client's (this). The other way around however, is not allowed.
-		// Thus, if the client version is greater than the server's, fail.
-		// In theory, we could return CL_INVALID_OPERATION from the server if the client
-		// uses a server-unsupported operation though.
-		if (mVersion[i] > v.mVersion[i]) return false;
 		++i;
 
 		// Next is the size in bytes of the type used for Object IDs, which must match.

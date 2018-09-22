@@ -143,13 +143,8 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clEnqueueReleaseEGLObjectsKHR,
 	nullptr, //clCreateEventFromEGLSyncKHR,
 
-	// CL 2.0 supported features.
-#if (CL_TARGET_OPENCL_VERSION >= 200)
+	// CL 2.0
 	clCreateCommandQueueWithProperties,
-#else
-	nullptr, //clCreateCommandQueueWithProperties,
-#endif
-
 	nullptr, //clCreatePipe,
 	nullptr, //clGetPipeInfo,
 	nullptr, //clSVMAlloc,
@@ -164,12 +159,8 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clSetKernelExecInfo,
 	nullptr, //clGetKernelSubGroupInfoKHR,
 
-	// CL 2.1 supported features.
-#if (CL_TARGET_OPENCL_VERSION >= 210)
+	// CL 2.1
 	clCloneKernel,
-#else
-	nullptr, //clCloneKernel,
-#endif
 	nullptr, //clCreateProgramWithIL,
 	nullptr, //clEnqueueSVMMigrateMem,
 	nullptr, //clGetDeviceAndHostTimer,
@@ -177,7 +168,7 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clGetKernelSubGroupInfo,
 	nullptr, //clSetDefaultDeviceCommandQueue,
 
-	// CL 2.2 supported features.
+	// CL 2.2
 	nullptr, //clSetProgramReleaseCallback,
 	nullptr //clSetProgramSpecializationConstant
 };

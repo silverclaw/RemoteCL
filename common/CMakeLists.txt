@@ -25,7 +25,8 @@ set(REMOTECL_DEFAULT_PORT 23857 CACHE STRING "The default port used by the clien
 
 # I wanted this in the project-level cmake, but add_compile_definitions requires a too-recent CMake version.
 # Instead, set it here and allow it to propagate to the client and server targets.
-target_compile_definitions(RemoteCL PUBLIC CL_TARGET_OPENCL_VERSION=${CL_TARGET_OPENCL_VERSION})
+target_compile_definitions(RemoteCL PUBLIC REMOTECL_VERSION_MAJ=${PROJECT_VERSION_MAJOR})
+target_compile_definitions(RemoteCL PUBLIC REMOTECL_VERSION_MIN=${PROJECT_VERSION_MINOR})
 
 if (WIN32)
 	# Required for winsock includes.

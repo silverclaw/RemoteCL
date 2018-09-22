@@ -24,6 +24,12 @@ if (REMOTECL_SERVER_USE_THREADS)
 	endif()
 endif (REMOTECL_SERVER_USE_THREADS)
 
+set(CL_TARGET_OPENCL_VERSION 220 CACHE STRING "Target OpenCL version for server.")
+if (${CL_TARGET_OPENCL_VERSION} LESS 120)
+	message(SEND_ERROR "The minimum required OpenCL version is 120.")
+endif()
+target_compile_definitions(RemoteCLServer PUBLIC CL_TARGET_OPENCL_VERSION=${CL_TARGET_OPENCL_VERSION})
+
 if (NOT WIN32)
 	# When building with support for a too-recent CL standard, there will be
 	# deprecation warnings; we still want to expose the functionality, so ignore those.

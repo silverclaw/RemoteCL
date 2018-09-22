@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.3.0)
 # CMP0063 - respect the visibility policy for all targets.
 cmake_policy(SET CMP0063 NEW)
-project(RemoteCL LANGUAGES CXX VERSION 0.1)
+project(RemoteCL LANGUAGES CXX VERSION 0.2)
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	message(STATUS "No build type selected, defaulting to Debug.")
@@ -17,12 +17,6 @@ if (CCACHE_BIN)
 		set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_BIN})
 	endif(USE_CCACHE)
 endif(CCACHE_BIN)
-
-
-set(CL_TARGET_OPENCL_VERSION 220 CACHE STRING "Target OpenCL version.")
-if (${CL_TARGET_OPENCL_VERSION} LESS 120)
-	message(SEND_ERROR "The minimum required OpenCL version is 120.")
-endif()
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenCL call forwarding.")
 set(CPACK_PACKAGE_DESCRIPTION "Forwards OpenCL API calls over a socket.")

@@ -294,7 +294,6 @@ clGetKernelArgInfo(cl_kernel kernel, cl_uint arg_indx, cl_kernel_arg_info param_
 	}
 }
 
-#if (CL_TARGET_OPENCL_VERSION >= 210)
 SO_EXPORT CL_API_ENTRY cl_kernel CL_API_CALL
 clCloneKernel(cl_kernel source_kernel, cl_int* errcode_ret) CL_API_SUFFIX__VERSION_2_1
 {
@@ -315,7 +314,6 @@ clCloneKernel(cl_kernel source_kernel, cl_int* errcode_ret) CL_API_SUFFIX__VERSI
 		ReturnError(CL_DEVICE_NOT_AVAILABLE);
 	}
 }
-#endif
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainKernel(cl_kernel kernel) CL_API_SUFFIX__VERSION_1_0
