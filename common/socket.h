@@ -64,7 +64,7 @@ public:
 	explicit Socket(const char* hostname, uint16_t port);
 	Socket(const Socket&) = delete;
 	Socket(Socket&& o) noexcept { std::swap(o.mSocket, mSocket); }
-	~Socket() noexcept { if (mSocket != -1) close(); }
+	~Socket() noexcept { if (mSocket != InvalidSocket) close(); }
 
 	Socket& operator=(const Socket&) = delete;
 
