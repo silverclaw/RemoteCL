@@ -6,7 +6,7 @@ This is useful when you want to debug an application that does not run on a targ
 
 This isn't an actual OpenCL implementation; it serves as a bridge between an application and some other, real implementation available elsewhere.
 
-Not all OpenCL calls are implemented; only the set of calls that I needed for my own uses. More functionality can be added when required.
+Not all OpenCL calls are implemented; only the set of calls that I needed for my own uses. More functionality can be added when required. For a list of which OpenCL functions are currently forwarded, see `client/exports.def`.
 
 I'm not particularly proud of the code; it works, which is what I needed. Pieces have been rewritten several times which lead to the overall design being a bit inconsistent, but hopefully it still all makes sense.
 Improvement and suggestions are thus welcome.
