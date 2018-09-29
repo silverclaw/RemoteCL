@@ -51,7 +51,7 @@ clCreateCommandQueue(cl_context context, cl_device_id device,
 		packet.mProp = properties;
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_SUCCESS);
+		GetStreamErrRet(stream);
 		stream.write(packet);
 		stream.flush();
 		// We expect a single ID.
@@ -75,7 +75,7 @@ clCreateCommandQueueWithProperties(cl_context context, cl_device_id device, cons
 	if (context == nullptr) ReturnError(CL_INVALID_CONTEXT);
 	if (device == nullptr) ReturnError(CL_INVALID_DEVICE);
 	auto contextLock(gConnection.getLock());
-	GetStreamErrRet(stream, CL_SUCCESS);
+	GetStreamErrRet(stream);
 
 	try {
 		CreateQueueWithProp packet;
@@ -134,7 +134,7 @@ clGetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info para
 		query.mData = param_name;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(query).flush();
 
@@ -178,7 +178,7 @@ clFlush(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<QFlushPacket>(GetID(command_queue));
@@ -197,7 +197,7 @@ clFinish(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<QFinishPacket>(GetID(command_queue));
@@ -216,7 +216,7 @@ clRetainCommandQueue(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Retain>({'Q', GetID(command_queue)});
@@ -235,7 +235,7 @@ clReleaseCommandQueue(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Release>({'Q', GetID(command_queue)});

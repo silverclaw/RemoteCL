@@ -76,7 +76,7 @@ clCreateContext(const cl_context_properties* properties,
 		}
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 
 		stream.write(packet);
 		stream.flush();
@@ -123,7 +123,7 @@ clCreateContextFromType(const cl_context_properties* properties, cl_device_type 
 		}
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 		stream.write(packet);
 		stream.flush();
 		// We expect a single ID.
@@ -145,7 +145,7 @@ clGetContextInfo(cl_context context, cl_context_info param_name,
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+	GetStream(stream);
 	IDType id = GetID(context);
 
 	try {
@@ -195,7 +195,7 @@ clRetainContext(cl_context context) CL_API_SUFFIX__VERSION_1_0
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		IDType id = GetID(context);
@@ -215,7 +215,7 @@ clReleaseContext(cl_context context) CL_API_SUFFIX__VERSION_1_0
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		IDType id = GetID(context);
@@ -240,7 +240,7 @@ clGetSupportedImageFormats(cl_context context, cl_mem_flags flags,
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		GetImageFormats query;
 		query.mContextID = GetID(context);

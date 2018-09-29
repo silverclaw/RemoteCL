@@ -37,7 +37,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id* platforms, cl_uint* num_pl
 	if (num_platforms) *num_platforms = 0;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		// Request the platform list...
@@ -77,7 +77,7 @@ clGetPlatformInfo(cl_platform_id platform, cl_platform_info param_name,
 	try {
 		IDType id = GetID(platform);
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 		stream.write<GetPlatformInfo>({id, param_name});
 		stream.flush();
 

@@ -82,7 +82,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue, cl_kernel kernel,
 		}
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(E);
 		if (num_events_in_wait_list) {
@@ -106,7 +106,7 @@ clCreateUserEvent(cl_context context, cl_int* errcode_ret) CL_API_SUFFIX__VERSIO
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStreamErrRet(stream);
 		stream.write<CreateUserEvent>({GetID(context)}).flush();
 		cl_event ret = gConnection.registerID<Event>(stream.read<IDPacket>());
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
@@ -127,7 +127,7 @@ clSetUserEventStatus(cl_event event, cl_int execution_status) CL_API_SUFFIX__VER
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 		SetUserEventStatus packet;
 		packet.mID = GetID(event);
 		packet.mData = execution_status;
@@ -158,7 +158,7 @@ clWaitForEvents(cl_uint num_events, const cl_event* event_list) CL_API_SUFFIX__V
 		}
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write<WaitForEvents>({});
 		stream.write(eventList);
@@ -181,7 +181,7 @@ clRetainEvent(cl_event event) CL_API_SUFFIX__VERSION_1_0
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 		stream.write<Retain>({'E', GetID(event)});
 		stream.flush();
 		stream.read<SuccessPacket>();
@@ -199,7 +199,7 @@ clReleaseEvent(cl_event event) CL_API_SUFFIX__VERSION_1_0
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 		stream.write<Release>({'E', GetID(event)});
 		stream.flush();
 		stream.read<SuccessPacket>();

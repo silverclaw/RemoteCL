@@ -70,7 +70,7 @@ clEnqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer,
 		std::memcpy(E.mPattern.data(), pattern, pattern_size);
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(E);
 		if (num_events_in_wait_list) {
@@ -122,7 +122,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool block
 		E.mQueueID = GetID(command_queue);
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(E);
 		if (num_events_in_wait_list) {
@@ -174,7 +174,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool bloc
 		E.mQueueID = GetID(command_queue);
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(E);
 		if (num_events_in_wait_list) {
@@ -211,7 +211,7 @@ clCreateBuffer(cl_context context, cl_mem_flags flags, size_t size,
 		packet.mExpectPayload = host_ptr != nullptr;
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 
 		stream.write(packet);
 		if (host_ptr) stream.write<PayloadPtr<>>({host_ptr, size});
@@ -242,7 +242,7 @@ clCreateSubBuffer(cl_mem buffer, cl_mem_flags flags, cl_buffer_create_type buffe
 		packet.mSize = region.size;
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 		stream.write(packet).flush();
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return gConnection.getOrInsertObject<MemObject>(stream.read<IDPacket>());
@@ -279,7 +279,7 @@ clGetMemObjectInfo(cl_mem memobj, cl_mem_info param_name, size_t param_value_siz
 		query.mData = param_name;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		stream.write(query).flush();
 
@@ -325,7 +325,7 @@ clRetainMemObject(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 		stream.write<Retain>({'M', GetID(memobj)});
 		stream.flush();
 		stream.read<SuccessPacket>();
@@ -343,7 +343,7 @@ clReleaseMemObject(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 		stream.write<Release>({'M', GetID(memobj)});
 		stream.flush();
 		stream.read<SuccessPacket>();

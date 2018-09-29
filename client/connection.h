@@ -88,15 +88,15 @@ private:
 extern Connection gConnection;
 
 /// Inserts an PacketStream named "X" into the current scope, if the client is connected.
-/// If the client is not connected, it terminated the current function with "retcode".
-#define GetStream(X, retCode) \
-	if (RemoteCL::Client::gConnection.getStream() == nullptr) return retCode; \
+/// If the client is not connected, or the connection was lost, returns CL_DEVICE_NOT_AVAILABLE.
+#define GetStream(X) \
+	if (RemoteCL::Client::gConnection.getStream() == nullptr) return CL_DEVICE_NOT_AVAILABLE; \
 	PacketStream& X = *RemoteCL::Client::gConnection.getStream();
 
 /// Same as GetStream, but where the error code is passed out through errcode_ret*.
-#define GetStreamErrRet(X, retCode) \
+#define GetStreamErrRet(X) \
 	if (RemoteCL::Client::gConnection.getStream() == nullptr) { \
-		if (errcode_ret) *errcode_ret = retCode; \
+		if (errcode_ret) *errcode_ret = CL_DEVICE_NOT_AVAILABLE; \
 		return nullptr; \
 	} \
 	PacketStream& X = *RemoteCL::Client::gConnection.getStream();

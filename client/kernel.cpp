@@ -39,7 +39,7 @@ clCreateKernel(cl_program program, const char* kernel_name, cl_int* errcode_ret)
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 		KernelName createKernel;
 		createKernel.mID = GetID(program);
 		createKernel.mString = kernel_name;
@@ -69,7 +69,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index,
 		arg.mArgIndex = arg_index;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		stream.write(arg);
 		stream.flush();
@@ -138,7 +138,7 @@ clGetKernelWorkGroupInfo(cl_kernel kernel, cl_device_id device,
 		info.mParam = param_name;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 		stream.write(info).flush();
 
 		switch (param_name) {
@@ -194,7 +194,7 @@ clGetKernelInfo(cl_kernel kernel, cl_kernel_info param_name, size_t param_value_
 		info.mData = param_name;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 		stream.write(info).flush();
 
 		switch (param_name) {
@@ -253,7 +253,7 @@ clGetKernelArgInfo(cl_kernel kernel, cl_uint arg_indx, cl_kernel_arg_info param_
 		info.mArgIndex = arg_indx;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 		stream.write(info).flush();
 
 		switch (param_name) {
@@ -301,7 +301,7 @@ clCloneKernel(cl_kernel source_kernel, cl_int* errcode_ret) CL_API_SUFFIX__VERSI
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 		stream.write<SimplePacket<PacketType::CloneKernel, IDType>>({GetID(source_kernel)}).flush();
 		IDType kernelID = stream.read<IDPacket>();
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
@@ -321,7 +321,7 @@ clRetainKernel(cl_kernel kernel) CL_API_SUFFIX__VERSION_1_0
 	if (kernel == nullptr) return CL_INVALID_KERNEL;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Retain>({'K', GetID(kernel)});
@@ -341,7 +341,7 @@ clReleaseKernel(cl_kernel kernel) CL_API_SUFFIX__VERSION_1_0
 	if (kernel == nullptr) return CL_INVALID_KERNEL;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Release>({'K', GetID(kernel)});

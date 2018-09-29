@@ -35,7 +35,7 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainDevice(cl_device_id device) CL_API_SUFFIX__VERSION_1_0
 {
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Retain>({'D', GetID(device)});
@@ -54,7 +54,7 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clReleaseDevice(cl_device_id device) CL_API_SUFFIX__VERSION_1_0
 {
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write( Release('D', GetID(device)));
@@ -80,7 +80,7 @@ clGetDeviceIDs(cl_platform_id platform, cl_device_type device_type,
 	if (num_devices) *num_devices = 0;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		IDType platID = 0;
@@ -136,7 +136,7 @@ clGetDeviceInfo(cl_device_id device, cl_device_info param_name,
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write<GetDeviceInfo>({GetID(device), param_name});
 		stream.flush();

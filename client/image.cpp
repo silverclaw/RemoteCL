@@ -75,7 +75,7 @@ clEnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blockin
 		E.mQueueID = GetID(command_queue);
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(E);
 		if (num_events_in_wait_list) {
@@ -136,7 +136,7 @@ clEnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocki
 		E.mQueueID = GetID(command_queue);
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_SUCCESS);
+		GetStream(stream);
 
 		stream.write(E);
 		if (num_events_in_wait_list) {
@@ -191,7 +191,7 @@ clCreateImage(cl_context context, cl_mem_flags flags,
 		packet.mContextID = GetID(context);
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 
 		stream.write(packet);
 		stream.flush();
@@ -261,7 +261,7 @@ clGetImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size,
 		query.mData = param_name;
 
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		stream.write(query).flush();
 

@@ -62,7 +62,7 @@ clCreateProgramWithSource(cl_context context,
 		packet.mString = srcStream.str();
 
 		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 		packet.mID = GetID(context);
 		stream.write(packet);
 		stream.flush();
@@ -98,7 +98,7 @@ clCreateProgramWithBinary(cl_context context, cl_uint num_devices,
 			deviceList.mIDs.push_back(GetID(device_list[dev]));
 		}
 
-		GetStreamErrRet(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStreamErrRet(stream);
 		stream.write<BinaryProgram>({GetID(context)});
 		stream.write(deviceList);
 		for (unsigned bin = 0; bin < num_devices; ++bin) {
@@ -142,7 +142,7 @@ clBuildProgram(cl_program program, cl_uint num_devices, const cl_device_id* devi
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		BuildProgram build;
 		build.mID = GetID(program);
@@ -174,7 +174,7 @@ clGetProgramBuildInfo(cl_program program, cl_device_id device, cl_program_build_
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		ProgramBuildInfo info;
 		info.mParam = param_name;
@@ -208,7 +208,7 @@ clGetProgramInfo(cl_program program, cl_program_info param_name,
 
 	try {
 		auto contextLock(gConnection.getLock());
-		GetStream(stream, CL_DEVICE_NOT_AVAILABLE);
+		GetStream(stream);
 
 		stream.write<ProgramInfo>({GetID(program), param_name});
 		stream.flush();
@@ -282,7 +282,7 @@ clRetainProgram(cl_program program) CL_API_SUFFIX__VERSION_1_0
 	if (program == nullptr) return CL_INVALID_PROGRAM;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Retain>({'P', GetID(program)});
@@ -302,7 +302,7 @@ clReleaseProgram(cl_program program) CL_API_SUFFIX__VERSION_1_0
 	if (program == nullptr) return CL_INVALID_PROGRAM;
 
 	auto contextLock(gConnection.getLock());
-	GetStream(stream, CL_SUCCESS);
+	GetStream(stream);
 
 	try {
 		stream.write<Release>({'P', GetID(program)});
