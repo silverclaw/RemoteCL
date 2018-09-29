@@ -19,6 +19,7 @@
 #include "CL/cl_platform.h"
 #include <cstring>
 #include "hints.h"
+#include "apiutil.h"
 #include "connection.h"
 #include "objects.h"
 #include "packets/platform.h"
@@ -105,20 +106,6 @@ clGetDeviceIDs(cl_platform_id platform, cl_device_type device_type,
 	}
 
 	return CL_SUCCESS;
-}
-
-namespace
-{
-template<typename T>
-void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
-{
-	if (availableSize >= sizeof(T)) {
-		*(reinterpret_cast<T*>(ptr)) = data;
-	}
-	if (sizeRet != nullptr) {
-		*sizeRet = sizeof(T);
-	}
-}
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL

@@ -21,6 +21,7 @@
 #include "hints.h"
 #include "connection.h"
 #include "objects.h"
+#include "apiutil.h"
 #include "packets/refcount.h"
 #include "packets/queue.h"
 #include "packets/IDs.h"
@@ -28,12 +29,6 @@
 
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
-
-#define ReturnError(X) \
-	do { \
-	if (errcode_ret != nullptr) *errcode_ret = X; \
-	return nullptr; \
-	} while(false);
 
 
 SO_EXPORT CL_API_ENTRY cl_command_queue CL_API_CALL
@@ -102,20 +97,6 @@ clCreateCommandQueueWithProperties(cl_context context, cl_device_id device, cons
 	} catch (...) {
 		ReturnError(CL_DEVICE_NOT_AVAILABLE);
 	}
-}
-
-namespace
-{
-template<typename T>
-void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
-{
-	if (availableSize >= sizeof(T)) {
-		*(reinterpret_cast<T*>(ptr)) = data;
-	}
-	if (sizeRet != nullptr) {
-		*sizeRet = sizeof(T);
-	}
-}
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL

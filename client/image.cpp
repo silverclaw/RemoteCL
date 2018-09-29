@@ -19,6 +19,7 @@
 
 #include "hints.h"
 #include "connection.h"
+#include "apiutil.h"
 #include "packets/refcount.h"
 #include "packets/image.h"
 #include "packets/IDs.h"
@@ -28,11 +29,6 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
 
-#define ReturnError(X) \
-	do { \
-	if (errcode_ret != nullptr) *errcode_ret = X; \
-	return nullptr; \
-	} while(false);
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blocking_read,
@@ -229,20 +225,6 @@ clCreateImage3D(cl_context context, cl_mem_flags flags,
 	desc.image_slice_pitch = image_slice_pitch;
 	desc.image_type = CL_MEM_OBJECT_IMAGE3D;
 	return clCreateImage(context, flags, image_format, &desc, host_ptr, errcode_ret);
-}
-
-namespace
-{
-template<typename T>
-void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
-{
-	if (availableSize >= sizeof(T)) {
-		*(reinterpret_cast<T*>(ptr)) = data;
-	}
-	if (sizeRet != nullptr) {
-		*sizeRet = sizeof(T);
-	}
-}
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL

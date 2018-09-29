@@ -18,6 +18,7 @@
 
 #include "CL/cl_platform.h"
 #include "hints.h"
+#include "apiutil.h"
 #include "connection.h"
 #include "packets/IDs.h"
 #include "packets/refcount.h"
@@ -28,11 +29,6 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
 
-#define ReturnError(X) \
-	do { \
-	if (errcode_ret != nullptr) *errcode_ret = X; \
-	return nullptr; \
-	} while(false);
 
 SO_EXPORT CL_API_ENTRY cl_context CL_API_CALL
 clCreateContext(const cl_context_properties* properties,

@@ -21,6 +21,7 @@
 
 #include "hints.h"
 #include "connection.h"
+#include "apiutil.h"
 #include "packets/refcount.h"
 #include "packets/program.h"
 #include "packets/IDs.h"
@@ -29,11 +30,6 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
 
-#define ReturnError(X) \
-	do { \
-	if (errcode_ret != nullptr) *errcode_ret = X; \
-	return nullptr; \
-	} while(false);
 
 SO_EXPORT CL_API_ENTRY cl_program CL_API_CALL
 clCreateProgramWithSource(cl_context context,

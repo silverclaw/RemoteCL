@@ -18,18 +18,13 @@
 #include <cstring>
 #include "hints.h"
 #include "connection.h"
+#include "apiutil.h"
 #include "packets/refcount.h"
 #include "packets/program.h"
 #include "packets/payload.h"
 
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
-
-#define ReturnError(X) \
-	do { \
-	if (errcode_ret != nullptr) *errcode_ret = X; \
-	return nullptr; \
-	} while(false);
 
 SO_EXPORT CL_API_ENTRY cl_kernel CL_API_CALL
 clCreateKernel(cl_program program, const char* kernel_name, cl_int* errcode_ret) CL_API_SUFFIX__VERSION_1_0
@@ -105,20 +100,6 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index,
 	}
 
 	return CL_SUCCESS;
-}
-
-namespace
-{
-template<typename T>
-void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
-{
-	if (availableSize >= sizeof(T)) {
-		*(reinterpret_cast<T*>(ptr)) = data;
-	}
-	if (sizeRet != nullptr) {
-		*sizeRet = sizeof(T);
-	}
-}
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL

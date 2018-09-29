@@ -19,6 +19,7 @@
 
 #include "hints.h"
 #include "connection.h"
+#include "apiutil.h"
 #include "packets/refcount.h"
 #include "packets/memory.h"
 #include "packets/IDs.h"
@@ -28,11 +29,6 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
 
-#define ReturnError(X) \
-	do { \
-	if (errcode_ret != nullptr) *errcode_ret = X; \
-	return nullptr; \
-	} while(false);
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer,
@@ -246,20 +242,6 @@ clCreateSubBuffer(cl_mem buffer, cl_mem_flags flags, cl_buffer_create_type buffe
 	} catch (...) {
 		ReturnError(CL_DEVICE_NOT_AVAILABLE);
 	}
-}
-
-namespace
-{
-template<typename T>
-void Store(T data, void* ptr, std::size_t availableSize, std::size_t* sizeRet)
-{
-	if (availableSize >= sizeof(T)) {
-		*(reinterpret_cast<T*>(ptr)) = data;
-	}
-	if (sizeRet != nullptr) {
-		*sizeRet = sizeof(T);
-	}
-}
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
