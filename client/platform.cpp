@@ -19,7 +19,6 @@
 #include "CL/cl_platform.h"
 #include "hints.h"
 #include "connection.h"
-#include "socketstream.h"
 #include "objects.h"
 #include "packets/platform.h"
 #include "packets/IDs.h"
@@ -36,15 +35,15 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id* platforms, cl_uint* num_pl
 
 	if (num_platforms) *num_platforms = 0;
 
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
 		// Request the platform list...
-		stream.write<GetPlatformIDs>({});
-		stream.flush();
+		stream->write<GetPlatformIDs>({});
+		stream->flush();
 		// ... and wait for it to arrive.
-		IDListPacket list = stream.read<IDListPacket>();
+		IDListPacket list = stream->read<IDListPacket>();
 
 		// Create a platform for each ID queried.
 		if (num_platforms) *num_platforms = list.mIDs.size();
@@ -76,13 +75,13 @@ clGetPlatformInfo(cl_platform_id platform, cl_platform_info param_name,
 
 	try {
 		IDType id = GetID(platform);
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
-		stream.write<GetPlatformInfo>({id, param_name});
-		stream.flush();
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		stream->write<GetPlatformInfo>({id, param_name});
+		stream->flush();
 
 		// All platform queries can be passed down straight to client.
-		Payload<uint8_t> payload = stream.read<Payload<uint8_t>>();
+		Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
 		if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
 		if (param_value && param_value_size >= payload.mData.size()) {
 			std::memcpy(param_value, payload.mData.data(), payload.mData.size());
@@ -94,5 +93,4 @@ clGetPlatformInfo(cl_platform_id platform, cl_platform_info param_name,
 	} catch (...) {
 		return CL_DEVICE_NOT_AVAILABLE;
 	}
-
 }

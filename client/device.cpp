@@ -34,13 +34,13 @@ using namespace RemoteCL::Client;
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainDevice(cl_device_id device) CL_API_SUFFIX__VERSION_1_0
 {
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
-		stream.write<Retain>({'D', GetID(device)});
-		stream.flush();
-		stream.read<SuccessPacket>();
+		stream->write<Retain>({'D', GetID(device)});
+		stream->flush();
+		stream->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -53,13 +53,13 @@ clRetainDevice(cl_device_id device) CL_API_SUFFIX__VERSION_1_0
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clReleaseDevice(cl_device_id device) CL_API_SUFFIX__VERSION_1_0
 {
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
-		stream.write( Release('D', GetID(device)));
-		stream.flush();
-		stream.read<SuccessPacket>();
+		stream->write( Release('D', GetID(device)));
+		stream->flush();
+		stream->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -79,18 +79,18 @@ clGetDeviceIDs(cl_platform_id platform, cl_device_type device_type,
 
 	if (num_devices) *num_devices = 0;
 
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
 		IDType platID = 0;
 		if (platform) platID = GetID(platform);
 
 		// Request the device list...
-		stream.write(GetDeviceIDs(platID, device_type));
-		stream.flush();
+		stream->write(GetDeviceIDs(platID, device_type));
+		stream->flush();
 		// ... and wait for it to arrive.
-		IDListPacket list = stream.read<IDListPacket>();
+		IDListPacket list = stream->read<IDListPacket>();
 
 		// Create a device for each ID queried.
 		if (num_devices) *num_devices = list.mIDs.size();
@@ -135,21 +135,21 @@ clGetDeviceInfo(cl_device_id device, cl_device_info param_name,
 	if (device == nullptr) return CL_INVALID_DEVICE;
 
 	try {
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
-		stream.write<GetDeviceInfo>({GetID(device), param_name});
-		stream.flush();
+		stream->write<GetDeviceInfo>({GetID(device), param_name});
+		stream->flush();
 
 		switch (param_name) {
 			// These queries must be ID-translated.
 			case CL_DEVICE_PLATFORM: {
-				PlatformID& id = gConnection.getOrInsertObject<PlatformID>(stream.read<IDPacket>());
+				PlatformID& id = gConnection.getOrInsertObject<PlatformID>(stream->read<IDPacket>());
 				Store<cl_platform_id>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
 			case CL_DEVICE_PARENT_DEVICE: {
-				DeviceID& id = gConnection.getOrInsertObject<DeviceID>(stream.read<IDPacket>());
+				DeviceID& id = gConnection.getOrInsertObject<DeviceID>(stream->read<IDPacket>());
 				Store<cl_device_id>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
@@ -170,13 +170,13 @@ clGetDeviceInfo(cl_device_id device, cl_device_info param_name,
 			case CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE:
 			case CL_DEVICE_MAX_PARAMETER_SIZE:
 			case CL_DEVICE_MAX_WORK_GROUP_SIZE: {
-				uint64_t value = stream.read<SimplePacket<PacketType::Payload, uint64_t>>();
+				uint64_t value = stream->read<SimplePacket<PacketType::Payload, uint64_t>>();
 				Store<uint64_t>(value, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
 			case CL_DEVICE_MAX_WORK_ITEM_SIZES: {
 				uint64_t sizes[3];
-				stream.read(PayloadInto<uint8_t>(sizes));
+				stream->read(PayloadInto<uint8_t>(sizes));
 				std::size_t* retVal = reinterpret_cast<std::size_t*>(param_value);
 				if (param_value_size_ret) *param_value_size_ret = 3 * sizeof(std::size_t);
 				if (retVal && param_value_size >= 3 * sizeof(std::size_t)) {
@@ -189,7 +189,7 @@ clGetDeviceInfo(cl_device_id device, cl_device_info param_name,
 
 			// All others, just memcpy whatever the server returned.
 			default: {
-				Payload<> payload = stream.read<Payload<>>();
+				Payload<> payload = stream->read<Payload<>>();
 				if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
 				if (param_value && param_value_size >= payload.mData.size()) {
 					std::memcpy(param_value, payload.mData.data(), payload.mData.size());

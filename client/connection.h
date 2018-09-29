@@ -30,20 +30,55 @@ namespace RemoteCL
 {
 namespace Client
 {
+class LockedStream final
+{
+public:
+	LockedStream(std::unique_lock<std::mutex> mutex, PacketStream* stream) :
+		mLock(std::move(mutex)), mStream(stream)
+	{
+	}
+
+	LockedStream(const LockedStream&) = delete;
+	LockedStream(LockedStream&&) = default;
+	LockedStream& operator=(const LockedStream&) = delete;
+	LockedStream& operator=(LockedStream&&) = delete;
+
+	PacketStream* operator->() noexcept
+	{
+		return mStream;
+	}
+
+	// This will eventually be removed.
+	// Added only during a transition period.
+	PacketStream& operator*() noexcept
+	{
+		return *mStream;
+	}
+
+	bool operator!() const noexcept
+	{
+		return mStream == nullptr;
+	}
+
+	explicit operator bool() const noexcept
+	{
+		return mStream != nullptr;
+	}
+
+private:
+	std::unique_lock<std::mutex> mLock;
+	PacketStream* mStream;
+};
+
 struct CLObject;
 class Connection
 {
 public:
 	Connection() noexcept;
 
-	PacketStream* getStream() noexcept
+	LockedStream getLockedStream()
 	{
-		return mStream.get();
-	}
-
-	std::unique_lock<std::mutex> getLock()
-	{
-		return std::unique_lock<std::mutex>(mMutex);
+		return {std::unique_lock<std::mutex>(mMutex), mStream.get()};
 	}
 
 	template<typename ObjTy>
@@ -87,20 +122,7 @@ private:
 /// Each client only has one connection to one server, created at process start time.
 extern Connection gConnection;
 
-/// Inserts an PacketStream named "X" into the current scope, if the client is connected.
-/// If the client is not connected, or the connection was lost, returns CL_DEVICE_NOT_AVAILABLE.
-#define GetStream(X) \
-	if (RemoteCL::Client::gConnection.getStream() == nullptr) return CL_DEVICE_NOT_AVAILABLE; \
-	PacketStream& X = *RemoteCL::Client::gConnection.getStream();
-
-/// Same as GetStream, but where the error code is passed out through errcode_ret*.
-#define GetStreamErrRet(X) \
-	if (RemoteCL::Client::gConnection.getStream() == nullptr) { \
-		if (errcode_ret) *errcode_ret = CL_DEVICE_NOT_AVAILABLE; \
-		return nullptr; \
-	} \
-	PacketStream& X = *RemoteCL::Client::gConnection.getStream();
-}
-}
+} // namespace Client
+} // namespace RemoteCL
 
 #endif

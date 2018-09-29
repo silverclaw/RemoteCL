@@ -19,7 +19,6 @@
 
 #include "hints.h"
 #include "connection.h"
-#include "packetstream.h"
 #include "packets/refcount.h"
 #include "packets/memory.h"
 #include "packets/IDs.h"
@@ -69,17 +68,17 @@ clEnqueueFillBuffer(cl_command_queue command_queue, cl_mem buffer,
 		}
 		std::memcpy(E.mPattern.data(), pattern, pattern_size);
 
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
-		stream.write(E);
+		stream->write(E);
 		if (num_events_in_wait_list) {
-			stream.write(eventList);
+			stream->write(eventList);
 		}
-		stream.flush();
+		stream->flush();
 
-		if (event) *event = gConnection.registerID<Event>(stream.read<IDPacket>());
-		stream.read<SuccessPacket>();
+		if (event) *event = gConnection.registerID<Event>(stream->read<IDPacket>());
+		stream->read<SuccessPacket>();
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -121,17 +120,17 @@ clEnqueueReadBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool block
 		E.mOffset = offset;
 		E.mQueueID = GetID(command_queue);
 
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
-		stream.write(E);
+		stream->write(E);
 		if (num_events_in_wait_list) {
-			stream.write(eventList);
+			stream->write(eventList);
 		}
-		stream.flush();
+		stream->flush();
 
-		if (event) *event = gConnection.registerID<Event>(stream.read<IDPacket>());
-		stream.read<PayloadInto<>>({ptr});
+		if (event) *event = gConnection.registerID<Event>(stream->read<IDPacket>());
+		stream->read<PayloadInto<>>({ptr});
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -173,18 +172,18 @@ clEnqueueWriteBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool bloc
 		E.mOffset = offset;
 		E.mQueueID = GetID(command_queue);
 
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
-		stream.write(E);
+		stream->write(E);
 		if (num_events_in_wait_list) {
-			stream.write(eventList);
+			stream->write(eventList);
 		}
-		stream.write<PayloadPtr<>>({ptr, size});
-		stream.flush();
+		stream->write<PayloadPtr<>>({ptr, size});
+		stream->flush();
 
-		if (event) *event = gConnection.registerID<Event>(stream.read<IDPacket>());
-		stream.read<SuccessPacket>();
+		if (event) *event = gConnection.registerID<Event>(stream->read<IDPacket>());
+		stream->read<SuccessPacket>();
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -210,14 +209,14 @@ clCreateBuffer(cl_context context, cl_mem_flags flags, size_t size,
 		packet.mContextID = GetID(context);
 		packet.mExpectPayload = host_ptr != nullptr;
 
-		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
 
-		stream.write(packet);
-		if (host_ptr) stream.write<PayloadPtr<>>({host_ptr, size});
-		stream.flush();
+		stream->write(packet);
+		if (host_ptr) stream->write<PayloadPtr<>>({host_ptr, size});
+		stream->flush();
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
-		return gConnection.getOrInsertObject<MemObject>(stream.read<IDPacket>());
+		return gConnection.getOrInsertObject<MemObject>(stream->read<IDPacket>());
 	} catch (const ErrorPacket& e) {
 		ReturnError(e.mData);
 	} catch (...) {
@@ -241,11 +240,11 @@ clCreateSubBuffer(cl_mem buffer, cl_mem_flags flags, cl_buffer_create_type buffe
 		packet.mOffset = region.origin;
 		packet.mSize = region.size;
 
-		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream);
-		stream.write(packet).flush();
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
+		stream->write(packet).flush();
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
-		return gConnection.getOrInsertObject<MemObject>(stream.read<IDPacket>());
+		return gConnection.getOrInsertObject<MemObject>(stream->read<IDPacket>());
 	} catch (const ErrorPacket& e) {
 		ReturnError(e.mData);
 	} catch (...) {
@@ -278,20 +277,20 @@ clGetMemObjectInfo(cl_mem memobj, cl_mem_info param_name, size_t param_value_siz
 		query.mID = GetID(memobj);
 		query.mData = param_name;
 
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
-		stream.write(query).flush();
+		stream->write(query).flush();
 
 		switch (param_name) {
 			// These queries must be ID-translated.
 			case CL_MEM_CONTEXT: {
-				Context& id = gConnection.getOrInsertObject<Context>(stream.read<IDPacket>());
+				Context& id = gConnection.getOrInsertObject<Context>(stream->read<IDPacket>());
 				Store<cl_context>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
 			case CL_MEM_ASSOCIATED_MEMOBJECT: {
-				MemObject& id = gConnection.getOrInsertObject<MemObject>(stream.read<IDPacket>());
+				MemObject& id = gConnection.getOrInsertObject<MemObject>(stream->read<IDPacket>());
 				Store<cl_mem>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
@@ -300,7 +299,7 @@ clGetMemObjectInfo(cl_mem memobj, cl_mem_info param_name, size_t param_value_siz
 			default: {
 				// The only other queries are sizes and refcount properties,
 				// which should fit in 4 bytes.
-				Payload<uint8_t> payload = stream.read<Payload<uint8_t>>();
+				Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
 				if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
 				if (param_value && param_value_size >= payload.mData.size()) {
 					std::memcpy(param_value, payload.mData.data(), payload.mData.size());
@@ -324,11 +323,11 @@ clRetainMemObject(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0
 	if (memobj == nullptr) return CL_INVALID_VALUE;
 
 	try {
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
-		stream.write<Retain>({'M', GetID(memobj)});
-		stream.flush();
-		stream.read<SuccessPacket>();
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		stream->write<Retain>({'M', GetID(memobj)});
+		stream->flush();
+		stream->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -342,11 +341,11 @@ clReleaseMemObject(cl_mem memobj) CL_API_SUFFIX__VERSION_1_0
 	if (memobj == nullptr) return CL_INVALID_VALUE;
 
 	try {
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
-		stream.write<Release>({'M', GetID(memobj)});
-		stream.flush();
-		stream.read<SuccessPacket>();
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		stream->write<Release>({'M', GetID(memobj)});
+		stream->flush();
+		stream->read<SuccessPacket>();
 	} catch (const ErrorPacket& e){
 		return e.mData;
 	} catch (...) {

@@ -75,13 +75,13 @@ clCreateContext(const cl_context_properties* properties,
 			packet.mDevices.push_back(GetID(devices[device]));
 		}
 
-		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
 
-		stream.write(packet);
-		stream.flush();
+		stream->write(packet);
+		stream->flush();
 		// We expect a single ID.
-		IDPacket ID = stream.read<IDPacket>();
+		IDPacket ID = stream->read<IDPacket>();
 		Context& C = gConnection.registerID<Context>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return C;
@@ -122,12 +122,12 @@ clCreateContextFromType(const cl_context_properties* properties, cl_device_type 
 			}
 		}
 
-		auto contextLock(gConnection.getLock());
-		GetStreamErrRet(stream);
-		stream.write(packet);
-		stream.flush();
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
+		stream->write(packet);
+		stream->flush();
 		// We expect a single ID.
-		IDPacket ID = stream.read<IDPacket>();
+		IDPacket ID = stream->read<IDPacket>();
 		Context& C = gConnection.registerID<Context>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return C;
@@ -144,14 +144,14 @@ clGetContextInfo(cl_context context, cl_context_info param_name,
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 	IDType id = GetID(context);
 
 	try {
-		stream.write<GetContextInfo>({id, param_name});
-		stream.flush();
-		Payload<uint8_t> payload = stream.read<Payload<uint8_t>>();
+		stream->write<GetContextInfo>({id, param_name});
+		stream->flush();
+		Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
 		if (param_value_size_ret) {
 			if (param_name == CL_CONTEXT_DEVICES) {
 				assert((payload.mData.size() % sizeof(IDType)) == 0);
@@ -194,14 +194,14 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainContext(cl_context context) CL_API_SUFFIX__VERSION_1_0
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
 		IDType id = GetID(context);
-		stream.write<Retain>({'C', id});
-		stream.flush();
-		stream.read<SuccessPacket>();
+		stream->write<Retain>({'C', id});
+		stream->flush();
+		stream->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -214,14 +214,14 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clReleaseContext(cl_context context) CL_API_SUFFIX__VERSION_1_0
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
-	auto contextLock(gConnection.getLock());
-	GetStream(stream);
+	LockedStream stream = gConnection.getLockedStream();
+	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
 		IDType id = GetID(context);
-		stream.write<Release>({'C', id});
-		stream.flush();
-		stream.read<SuccessPacket>();
+		stream->write<Release>({'C', id});
+		stream->flush();
+		stream->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -237,19 +237,18 @@ clGetSupportedImageFormats(cl_context context, cl_mem_flags flags,
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 
-
 	try {
-		auto contextLock(gConnection.getLock());
-		GetStream(stream);
+		LockedStream stream = gConnection.getLockedStream();
+		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 		GetImageFormats query;
 		query.mContextID = GetID(context);
 		query.mFlags = flags;
 		query.mImageType = image_type;
-		stream.write(query);
-		stream.flush();
+		stream->write(query);
+		stream->flush();
 		// The server will reply with a payload
-		Payload<uint16_t> payload = stream.read<Payload<uint16_t>>();
+		Payload<uint16_t> payload = stream->read<Payload<uint16_t>>();
 		if (num_image_formats) {
 			*num_image_formats = payload.mData.size() / sizeof(cl_image_format);
 		}
