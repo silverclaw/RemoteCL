@@ -75,14 +75,13 @@ clCreateContext(const cl_context_properties* properties,
 			packet.mDevices.push_back(GetID(devices[device]));
 		}
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
+		auto conn = gConnection.get();
 
-		stream->write(packet);
-		stream->flush();
+		conn->write(packet);
+		conn->flush();
 		// We expect a single ID.
-		IDPacket ID = stream->read<IDPacket>();
-		Context& C = gConnection.registerID<Context>(ID);
+		IDPacket ID = conn->read<IDPacket>();
+		Context& C = conn.registerID<Context>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return C;
 	} catch (...) {
@@ -122,13 +121,13 @@ clCreateContextFromType(const cl_context_properties* properties, cl_device_type 
 			}
 		}
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
-		stream->write(packet);
-		stream->flush();
+		auto conn = gConnection.get();
+
+		conn->write(packet);
+		conn->flush();
 		// We expect a single ID.
-		IDPacket ID = stream->read<IDPacket>();
-		Context& C = gConnection.registerID<Context>(ID);
+		IDPacket ID = conn->read<IDPacket>();
+		Context& C = conn.registerID<Context>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return C;
 	} catch (...) {
@@ -144,14 +143,13 @@ clGetContextInfo(cl_context context, cl_context_info param_name,
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 	IDType id = GetID(context);
 
 	try {
-		stream->write<GetContextInfo>({id, param_name});
-		stream->flush();
-		Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
+		auto conn = gConnection.get();
+		conn->write<GetContextInfo>({id, param_name});
+		conn->flush();
+		Payload<uint8_t> payload = conn->read<Payload<uint8_t>>();
 		if (param_value_size_ret) {
 			if (param_name == CL_CONTEXT_DEVICES) {
 				assert((payload.mData.size() % sizeof(IDType)) == 0);
@@ -173,7 +171,7 @@ clGetContextInfo(cl_context context, cl_context_info param_name,
 				/// The number of IDs that can be returned through param_value.
 				auto available = std::min(idCount, param_value_size / sizeof(cl_device_id));
 				while (available != 0) {
-					*ret = gConnection.getOrInsertObject<DeviceID>(*ids);
+					*ret = conn.getOrInsertObject<DeviceID>(*ids);
 					++ret;
 					++ids;
 					--available;
@@ -194,17 +192,17 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainContext(cl_context context) CL_API_SUFFIX__VERSION_1_0
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
+		auto conn = gConnection.get();
 		IDType id = GetID(context);
-		stream->write<Retain>({'C', id});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		conn->write<Retain>({'C', id});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
 	}
 
 	return CL_SUCCESS;
@@ -214,17 +212,17 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clReleaseContext(cl_context context) CL_API_SUFFIX__VERSION_1_0
 {
 	if (context == nullptr) return CL_INVALID_CONTEXT;
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
+		auto conn = gConnection.get();
 		IDType id = GetID(context);
-		stream->write<Release>({'C', id});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		conn->write<Release>({'C', id});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
 	}
 
 	return CL_SUCCESS;
@@ -238,17 +236,16 @@ clGetSupportedImageFormats(cl_context context, cl_mem_flags flags,
 	if (context == nullptr) return CL_INVALID_CONTEXT;
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
 		GetImageFormats query;
 		query.mContextID = GetID(context);
 		query.mFlags = flags;
 		query.mImageType = image_type;
-		stream->write(query);
-		stream->flush();
+		conn->write(query);
+		conn->flush();
 		// The server will reply with a payload
-		Payload<uint16_t> payload = stream->read<Payload<uint16_t>>();
+		Payload<uint16_t> payload = conn->read<Payload<uint16_t>>();
 		if (num_image_formats) {
 			*num_image_formats = payload.mData.size() / sizeof(cl_image_format);
 		}

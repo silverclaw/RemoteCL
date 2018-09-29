@@ -30,63 +30,56 @@ namespace RemoteCL
 {
 namespace Client
 {
-class LockedStream final
-{
-public:
-	LockedStream(std::unique_lock<std::mutex> mutex, PacketStream* stream) :
-		mLock(std::move(mutex)), mStream(stream)
-	{
-	}
-
-	LockedStream(const LockedStream&) = delete;
-	LockedStream(LockedStream&&) = default;
-	LockedStream& operator=(const LockedStream&) = delete;
-	LockedStream& operator=(LockedStream&&) = delete;
-
-	PacketStream* operator->() noexcept
-	{
-		return mStream;
-	}
-
-	// This will eventually be removed.
-	// Added only during a transition period.
-	PacketStream& operator*() noexcept
-	{
-		return *mStream;
-	}
-
-	bool operator!() const noexcept
-	{
-		return mStream == nullptr;
-	}
-
-	explicit operator bool() const noexcept
-	{
-		return mStream != nullptr;
-	}
-
-private:
-	std::unique_lock<std::mutex> mLock;
-	PacketStream* mStream;
-};
-
 struct CLObject;
-class Connection
+class LockedConnection;
+
+/// Describes a client connection.
+/// This isn't meant to be used directly. Use get() to acquire a locked
+/// access handle.
+class Connection final
 {
 public:
 	Connection() noexcept;
 
-	LockedStream getLockedStream()
+	/// Acquire a locked handle to use the connection.
+	LockedConnection get();
+
+	~Connection();
+
+private:
+	friend class LockedConnection;
+	std::unique_ptr<PacketStream> mStream;
+	/// All of the objects that have been queried by the client.
+	/// Each will have a unique ID which is effectively an index into this vector.
+	std::map<IDType, CLObject*> mObjects;
+	std::mutex mMutex;
+};
+
+/// Allows access to the connection internals through an auto-locked handle.
+class LockedConnection final
+{
+private:
+	LockedConnection(const LockedConnection&) = delete;
+	LockedConnection& operator=(const LockedConnection&) = delete;
+	explicit LockedConnection(Connection& parent) :
+		mLock(parent.mMutex), mParent(parent)
 	{
-		return {std::unique_lock<std::mutex>(mMutex), mStream.get()};
+		if (!parent.mStream) throw Socket::Error();
 	}
+
+	std::unique_lock<std::mutex> mLock;
+	Connection& mParent;
+
+public:
+	LockedConnection(LockedConnection&&) = default;
+	LockedConnection& operator=(LockedConnection&&) = default;
 
 	template<typename ObjTy>
 	ObjTy* getObject(IDType id)
 	{
 		static_assert(std::is_base_of<CLObject, ObjTy>::value, "Invalid object queried");
 		// std::map default-initialises to nullptr, which is what we want.
-		return static_cast<ObjTy*>(mObjects[id]);
+		return static_cast<ObjTy*>(mParent.mObjects[id]);
 	}
 
 	template<typename ObjTy>
@@ -95,7 +88,7 @@ public:
 		static_assert(std::is_base_of<CLObject, ObjTy>::value, "Invalid object queried");
 		std::unique_ptr<ObjTy> obj(new ObjTy(id));
 		ObjTy* ptr = obj.get();
-		mObjects.insert({id, ptr});
+		mParent.mObjects.insert({id, ptr});
 		obj.release();
 		return *ptr;
 	}
@@ -104,20 +97,24 @@ public:
 	ObjTy& getOrInsertObject(IDType id)
 	{
 		static_assert(std::is_base_of<CLObject, ObjTy>::value, "Invalid object queried");
-		auto it = mObjects.find(id);
-		if (it != mObjects.end()) return *static_cast<ObjTy*>(it->second);
+		auto it = mParent.mObjects.find(id);
+		if (it != mParent.mObjects.end()) return *static_cast<ObjTy*>(it->second);
 		return registerID<ObjTy>(id);
 	}
 
-	~Connection();
+	/// Send and receive packets through this connection.
+	PacketStream* operator->() noexcept
+	{
+		return mParent.mStream.get();
+	}
 
-private:
-	std::unique_ptr<PacketStream> mStream;
-	/// All of the objects that have been queried by the client.
-	/// Each will have a unique ID which is effectively an index into this vector.
-	std::map<IDType, CLObject*> mObjects;
-	std::mutex mMutex;
+	friend class Connection;
 };
+
+inline LockedConnection Connection::get()
+{
+	return LockedConnection(*this);
+}
 
 /// Each client only has one connection to one server, created at process start time.
 extern Connection gConnection;

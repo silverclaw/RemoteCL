@@ -50,13 +50,12 @@ clCreateCommandQueue(cl_context context, cl_device_id device,
 		packet.mDevice = GetID(device);
 		packet.mProp = properties;
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
-		stream->write(packet);
-		stream->flush();
+		auto conn = gConnection.get();
+		conn->write(packet);
+		conn->flush();
 		// We expect a single ID.
-		IDPacket ID = stream->read<IDPacket>();
-		Queue& Q = gConnection.registerID<Queue>(ID);
+		IDPacket ID = conn->read<IDPacket>();
+		Queue& Q = conn.registerID<Queue>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return Q;
 	} catch (const std::bad_alloc&) {
@@ -74,8 +73,6 @@ clCreateCommandQueueWithProperties(cl_context context, cl_device_id device, cons
 {
 	if (context == nullptr) ReturnError(CL_INVALID_CONTEXT);
 	if (device == nullptr) ReturnError(CL_INVALID_DEVICE);
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
 
 	try {
 		CreateQueueWithProp packet;
@@ -90,11 +87,12 @@ clCreateCommandQueueWithProperties(cl_context context, cl_device_id device, cons
 				++properties;
 			}
 		}
-		stream->write(packet);
-		stream->flush();
+		auto conn = gConnection.get();
+		conn->write(packet);
+		conn->flush();
 		// We expect a single ID.
-		IDPacket ID = stream->read<IDPacket>();
-		Queue& Q = gConnection.registerID<Queue>(ID);
+		IDPacket ID = conn->read<IDPacket>();
+		Queue& Q = conn.registerID<Queue>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return Q;
 	} catch (const std::bad_alloc&) {
@@ -133,20 +131,19 @@ clGetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info para
 		query.mID = queue;
 		query.mData = param_name;
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write(query).flush();
+		conn->write(query).flush();
 
 		switch (param_name) {
 			// These queries must be ID-translated.
 			case CL_QUEUE_CONTEXT: {
-				Context& id = gConnection.getOrInsertObject<Context>(stream->read<IDPacket>());
+				Context& id = conn.getOrInsertObject<Context>(conn->read<IDPacket>());
 				Store<cl_context>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
 			case CL_QUEUE_DEVICE: {
-				DeviceID& id = gConnection.getOrInsertObject<DeviceID>(stream->read<IDPacket>());
+				DeviceID& id = conn.getOrInsertObject<DeviceID>(conn->read<IDPacket>());
 				Store<cl_device_id>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
@@ -155,7 +152,7 @@ clGetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info para
 			default: {
 				// The only other queries are queue size and queue properties,
 				// which should fit in 4 bytes.
-				Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
+				Payload<uint8_t> payload = conn->read<Payload<uint8_t>>();
 				if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
 				if (param_value && param_value_size >= payload.mData.size()) {
 					std::memcpy(param_value, payload.mData.data(), payload.mData.size());
@@ -177,16 +174,16 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clFlush(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
-		stream->write<QFlushPacket>(GetID(command_queue));
-		stream->flush();
-		stream->read<SuccessPacket>();
+		auto conn = gConnection.get();
+		conn->write<QFlushPacket>(GetID(command_queue));
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
 	}
 
 	return CL_SUCCESS;
@@ -196,16 +193,16 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clFinish(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
-		stream->write<QFinishPacket>(GetID(command_queue));
-		stream->flush();
-		stream->read<SuccessPacket>();
+		auto conn = gConnection.get();
+		conn->write<QFinishPacket>(GetID(command_queue));
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
 	}
 
 	return CL_SUCCESS;
@@ -215,16 +212,16 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clRetainCommandQueue(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
-		stream->write<Retain>({'Q', GetID(command_queue)});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		auto conn = gConnection.get();
+		conn->write<Retain>({'Q', GetID(command_queue)});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
 	}
 
 	return CL_SUCCESS;
@@ -234,16 +231,16 @@ SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clReleaseCommandQueue(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
 
 	try {
-		stream->write<Release>({'Q', GetID(command_queue)});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		auto conn = gConnection.get();
+		conn->write<Release>({'Q', GetID(command_queue)});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e){
 		return e.mData;
 	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
 	}
 
 	return CL_SUCCESS;

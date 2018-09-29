@@ -80,17 +80,16 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue, cl_kernel kernel,
 			}
 		}
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write(E);
+		conn->write(E);
 		if (num_events_in_wait_list) {
-			stream->write(eventList);
+			conn->write(eventList);
 		}
-		stream->flush();
+		conn->flush();
 
-		if (event) *event = gConnection.registerID<Event>(stream->read<IDPacket>());
-		stream->read<SuccessPacket>();
+		if (event) *event = conn.registerID<Event>(conn->read<IDPacket>());
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -104,10 +103,9 @@ clCreateUserEvent(cl_context context, cl_int* errcode_ret) CL_API_SUFFIX__VERSIO
 	if (context == nullptr) ReturnError(CL_INVALID_CONTEXT);
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-	if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
-		stream->write<CreateUserEvent>({GetID(context)}).flush();
-		cl_event ret = gConnection.registerID<Event>(stream->read<IDPacket>());
+		auto conn = gConnection.get();
+		conn->write<CreateUserEvent>({GetID(context)}).flush();
+		cl_event ret = conn.registerID<Event>(conn->read<IDPacket>());
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return ret;
 	} catch (const std::bad_alloc&) {
@@ -125,13 +123,12 @@ clSetUserEventStatus(cl_event event, cl_int execution_status) CL_API_SUFFIX__VER
 	if (event == nullptr) return CL_INVALID_EVENT;
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 		SetUserEventStatus packet;
 		packet.mID = GetID(event);
 		packet.mData = execution_status;
-		stream->write(packet).flush();
-		stream->read<SuccessPacket>();
+		conn->write(packet).flush();
+		conn->read<SuccessPacket>();
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return(CL_OUT_OF_HOST_MEMORY);
@@ -156,13 +153,12 @@ clWaitForEvents(cl_uint num_events, const cl_event* event_list) CL_API_SUFFIX__V
 			eventList.mIDs.push_back(GetID(event_list[i]));
 		}
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write<WaitForEvents>({});
-		stream->write(eventList);
-		stream->flush();
-		stream->read<SuccessPacket>();
+		conn->write<WaitForEvents>({});
+		conn->write(eventList);
+		conn->flush();
+		conn->read<SuccessPacket>();
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -179,11 +175,10 @@ clRetainEvent(cl_event event) CL_API_SUFFIX__VERSION_1_0
 	if (event == nullptr) return CL_INVALID_VALUE;
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
-		stream->write<Retain>({'E', GetID(event)});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		auto conn = gConnection.get();
+		conn->write<Retain>({'E', GetID(event)});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -197,11 +192,10 @@ clReleaseEvent(cl_event event) CL_API_SUFFIX__VERSION_1_0
 	if (event == nullptr) return CL_INVALID_VALUE;
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
-		stream->write<Release>({'E', GetID(event)});
-		stream->flush();
-		stream->read<SuccessPacket>();
+	auto conn = gConnection.get();
+		conn->write<Release>({'E', GetID(event)});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e){
 		return e.mData;
 	} catch (...) {

@@ -35,21 +35,19 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id* platforms, cl_uint* num_pl
 
 	if (num_platforms) *num_platforms = 0;
 
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
-
 	try {
+		auto conn = gConnection.get();
 		// Request the platform list...
-		stream->write<GetPlatformIDs>({});
-		stream->flush();
+		conn->write<GetPlatformIDs>({});
+		conn->flush();
 		// ... and wait for it to arrive.
-		IDListPacket list = stream->read<IDListPacket>();
+		IDListPacket list = conn->read<IDListPacket>();
 
 		// Create a platform for each ID queried.
 		if (num_platforms) *num_platforms = list.mIDs.size();
 		uint32_t entry = 0;
 		for (auto& p : list.mIDs) {
-			PlatformID& platform = gConnection.getOrInsertObject<PlatformID>(p);
+			PlatformID& platform = conn.getOrInsertObject<PlatformID>(p);
 			if (entry < num_entries) {
 				platforms[entry] = platform;
 				entry++;
@@ -75,13 +73,12 @@ clGetPlatformInfo(cl_platform_id platform, cl_platform_info param_name,
 
 	try {
 		IDType id = GetID(platform);
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
-		stream->write<GetPlatformInfo>({id, param_name});
-		stream->flush();
+		auto conn = gConnection.get();
+		conn->write<GetPlatformInfo>({id, param_name});
+		conn->flush();
 
 		// All platform queries can be passed down straight to client.
-		Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
+		Payload<uint8_t> payload = conn->read<Payload<uint8_t>>();
 		if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
 		if (param_value && param_value_size >= payload.mData.size()) {
 			std::memcpy(param_value, payload.mData.data(), payload.mData.size());

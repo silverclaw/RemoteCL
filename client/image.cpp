@@ -73,17 +73,16 @@ clEnqueueReadImage(cl_command_queue command_queue, cl_mem image, cl_bool blockin
 		E.mImageID = GetID(image);
 		E.mQueueID = GetID(command_queue);
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write(E);
+		conn->write(E);
 		if (num_events_in_wait_list) {
-			stream->write(eventList);
+			conn->write(eventList);
 		}
-		stream->flush();
+		conn->flush();
 
-		if (event) *event = gConnection.registerID<Event>(stream->read<IDPacket>());
-		stream->read<PayloadInto<>>({ptr});
+		if (event) *event = conn.registerID<Event>(conn->read<IDPacket>());
+		conn->read<PayloadInto<>>({ptr});
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -134,24 +133,23 @@ clEnqueueWriteImage(cl_command_queue command_queue, cl_mem image, cl_bool blocki
 		E.mImageID = GetID(image);
 		E.mQueueID = GetID(command_queue);
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write(E);
+		conn->write(E);
 		if (num_events_in_wait_list) {
-			stream->write(eventList);
+			conn->write(eventList);
 		}
-		stream->flush();
+		conn->flush();
 
 		// We need to know how big the input buffer is. This depends on image format,
 		// which will be known by the server, so wait for the server to tell us
 		// how much data will be required.
-		auto dataSize = stream->read<SimplePacket<PacketType::Payload, uint32_t>>();
+		auto dataSize = conn->read<SimplePacket<PacketType::Payload, uint32_t>>();
 		// Push out the image data.
-		stream->write<PayloadPtr<>>({ptr, dataSize}).flush();
+		conn->write<PayloadPtr<>>({ptr, dataSize}).flush();
 
-		if (event) *event = gConnection.registerID<Event>(stream->read<IDPacket>());
-		else stream->read<SuccessPacket>();
+		if (event) *event = conn.registerID<Event>(conn->read<IDPacket>());
+		else conn->read<SuccessPacket>();
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -189,13 +187,12 @@ clCreateImage(cl_context context, cl_mem_flags flags,
 		packet.mSamples = image_desc->num_samples;
 		packet.mContextID = GetID(context);
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
+		auto conn = gConnection.get();
 
-		stream->write(packet);
-		stream->flush();
+		conn->write(packet);
+		conn->flush();
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
-		return gConnection.getOrInsertObject<MemObject>(stream->read<IDPacket>());
+		return conn.getOrInsertObject<MemObject>(conn->read<IDPacket>());
 	} catch (const ErrorPacket& e) {
 		ReturnError(e.mData);
 	} catch (...) {
@@ -259,21 +256,20 @@ clGetImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size,
 		query.mID = GetID(image);
 		query.mData = param_name;
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write(query).flush();
+		conn->write(query).flush();
 
 		switch (param_name) {
 			case CL_IMAGE_BUFFER: {
-				MemObject& id = gConnection.getOrInsertObject<MemObject>(stream->read<IDPacket>());
+				MemObject& id = conn.getOrInsertObject<MemObject>(conn->read<IDPacket>());
 				Store<cl_mem>(id, param_value, param_value_size, param_value_size_ret);
 				break;
 			}
 
 			default: {
 				// The only other queries are image properties which should fit in 4 bytes.
-				Payload<uint8_t> payload = stream->read<Payload<uint8_t>>();
+				Payload<uint8_t> payload = conn->read<Payload<uint8_t>>();
 				if (param_value_size_ret) *param_value_size_ret = payload.mData.size();
 				if (param_value && param_value_size >= payload.mData.size()) {
 					std::memcpy(param_value, payload.mData.data(), payload.mData.size());

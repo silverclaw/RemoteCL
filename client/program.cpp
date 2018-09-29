@@ -61,13 +61,12 @@ clCreateProgramWithSource(cl_context context,
 		ProgramSource packet;
 		packet.mString = srcStream.str();
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
+		auto conn = gConnection.get();
 		packet.mID = GetID(context);
-		stream->write(packet);
-		stream->flush();
-		IDPacket ID = stream->read<IDPacket>();
-		Program& P = gConnection.registerID<Program>(ID);
+		conn->write(packet);
+		conn->flush();
+		IDPacket ID = conn->read<IDPacket>();
+		Program& P = conn.registerID<Program>(ID);
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
 		return P;
 	} catch (const ErrorPacket& e) {
@@ -98,23 +97,22 @@ clCreateProgramWithBinary(cl_context context, cl_uint num_devices,
 			deviceList.mIDs.push_back(GetID(device_list[dev]));
 		}
 
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) ReturnError(CL_DEVICE_NOT_AVAILABLE);
-		stream->write<BinaryProgram>({GetID(context)});
-		stream->write(deviceList);
+		auto conn = gConnection.get();
+		conn->write<BinaryProgram>({GetID(context)});
+		conn->write(deviceList);
 		for (unsigned bin = 0; bin < num_devices; ++bin) {
-			stream->write<PayloadPtr<uint32_t>>({binaries[bin], binaries[bin] ? lengths[bin] : 0});
+			conn->write<PayloadPtr<uint32_t>>({binaries[bin], binaries[bin] ? lengths[bin] : 0});
 		}
 
-		stream->flush();
-		Program& P = gConnection.registerID<Program>(stream->read<IDPacket>());
+		conn->flush();
+		Program& P = conn.registerID<Program>(conn->read<IDPacket>());
 
 		if (binary_status) {
 			// Stream into results.
-			stream->read<PayloadInto<uint16_t>>(binary_status);
+			conn->read<PayloadInto<uint16_t>>(binary_status);
 		} else {
 			// Discard the packet.
-			stream->read<Payload<uint16_t>>();
+			conn->read<Payload<uint16_t>>();
 		}
 
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
@@ -142,8 +140,7 @@ clBuildProgram(cl_program program, cl_uint num_devices, const cl_device_id* devi
 	}
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
 		BuildProgram build;
 		build.mID = GetID(program);
@@ -153,10 +150,10 @@ clBuildProgram(cl_program program, cl_uint num_devices, const cl_device_id* devi
 		ids.mIDs.reserve(num_devices);
 		for (unsigned d = 0; d < num_devices; ++d) ids.mIDs.push_back(GetID(device_list[d]));
 
-		stream->write(build);
-		stream->write(ids);
-		stream->flush();
-		stream->read<SuccessPacket>();
+		conn->write(build);
+		conn->write(ids);
+		conn->flush();
+		conn->read<SuccessPacket>();
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
@@ -174,16 +171,15 @@ clGetProgramBuildInfo(cl_program program, cl_device_id device, cl_program_build_
 	if (device == nullptr) return CL_INVALID_DEVICE;
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
 		ProgramBuildInfo info;
 		info.mParam = param_name;
 		info.mProgramID = GetID(program);
 		info.mDeviceID = GetID(device);
-		stream->write(info);
-		stream->flush();
-		Payload<> payload = stream->read<Payload<>>();
+		conn->write(info);
+		conn->flush();
+		Payload<> payload = conn->read<Payload<>>();
 		if (param_value_size_ret) {
 			*param_value_size_ret = payload.mData.size();
 		}
@@ -208,39 +204,38 @@ clGetProgramInfo(cl_program program, cl_program_info param_name,
 	if (program == nullptr) return CL_INVALID_PROGRAM;
 
 	try {
-		LockedStream stream = gConnection.getLockedStream();
-		if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+		auto conn = gConnection.get();
 
-		stream->write<ProgramInfo>({GetID(program), param_name});
-		stream->flush();
+		conn->write<ProgramInfo>({GetID(program), param_name});
+		conn->flush();
 
 		if (param_name == CL_PROGRAM_CONTEXT) {
-			IDPacket id = stream->read<IDPacket>();
+			IDPacket id = conn->read<IDPacket>();
 			// We know the context exists.
-			Context* context = gConnection.getObject<Context>(id);
+			Context* context = conn.getObject<Context>(id);
 			assert(context != nullptr);
 			if (param_value_size_ret) *param_value_size_ret = sizeof(cl_context);
 			if (param_value && param_value_size >= sizeof(cl_context)) {
 				*reinterpret_cast<cl_context*>(param_value) = *context;
 			}
 		} else if (param_name == CL_PROGRAM_DEVICES) {
-			IDListPacket list = stream->read<IDListPacket>();
+			IDListPacket list = conn->read<IDListPacket>();
 			if (param_value_size_ret) *param_value_size_ret = list.mIDs.size() * sizeof(cl_device_id);
 			if (param_value && param_value_size >= list.mIDs.size() * sizeof(cl_device_id)) {
 				cl_device_id* ids = reinterpret_cast<cl_device_id*>(param_value);
 				for (IDType id : list.mIDs) {
-					*ids = *gConnection.getObject<DeviceID>(id);
+					*ids = *conn.getObject<DeviceID>(id);
 					++ids;
 				}
 			}
 		} else if (param_name == CL_PROGRAM_BINARIES) {
 			// Get how many binaries are there.
-			const uint8_t binaryCount = stream->read<SimplePacket<PacketType::Payload, uint8_t>>();
+			const uint8_t binaryCount = conn->read<SimplePacket<PacketType::Payload, uint8_t>>();
 			// Receive all binaries.
 			std::vector<Payload<uint16_t>> binaries;
 			binaries.reserve(binaryCount);
 			for (std::size_t i = 0; i < binaryCount; ++i) {
-				binaries.emplace_back(stream->read<Payload<uint16_t>>());
+				binaries.emplace_back(conn->read<Payload<uint16_t>>());
 			}
 
 			// Now that all data has been received, pass it down to the application.
@@ -258,7 +253,7 @@ clGetProgramInfo(cl_program program, cl_program_info param_name,
 				}
 			}
 		} else {
-			Payload<> payload = stream->read<Payload<>>();
+			Payload<> payload = conn->read<Payload<>>();
 			if (param_value_size_ret) {
 				*param_value_size_ret = payload.mData.size();
 			}
@@ -282,13 +277,12 @@ clRetainProgram(cl_program program) CL_API_SUFFIX__VERSION_1_0
 {
 	if (program == nullptr) return CL_INVALID_PROGRAM;
 
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+	auto conn = gConnection.get();
 
 	try {
-		stream->write<Retain>({'P', GetID(program)});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		conn->write<Retain>({'P', GetID(program)});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
@@ -302,13 +296,12 @@ clReleaseProgram(cl_program program) CL_API_SUFFIX__VERSION_1_0
 {
 	if (program == nullptr) return CL_INVALID_PROGRAM;
 
-	LockedStream stream = gConnection.getLockedStream();
-	if (!stream) return CL_DEVICE_NOT_AVAILABLE;
+	auto conn = gConnection.get();
 
 	try {
-		stream->write<Release>({'P', GetID(program)});
-		stream->flush();
-		stream->read<SuccessPacket>();
+		conn->write<Release>({'P', GetID(program)});
+		conn->flush();
+		conn->read<SuccessPacket>();
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {
