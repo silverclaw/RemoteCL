@@ -90,6 +90,8 @@ enum class PacketType : uint8_t
 	// Events.
 	CreateUserEvent,
 	SetUserEventStatus,
+	GetEventInfo,
+	GetEventProfilingInfo,
 	WaitEvents,
 
 	// Platform functions.

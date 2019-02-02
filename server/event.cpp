@@ -91,6 +91,29 @@ void ServerInstance::setUserEventStatus()
 	}
 }
 
+void ServerInstance::getEventInfo()
+{
+	// Not supported yet
+	mStream.write<ErrorPacket>(CL_INVALID_OPERATION);
+}
+
+void ServerInstance::getEventProfilingInfo()
+{
+	GetEventProfilingInfo packet = mStream.read<GetEventProfilingInfo>();
+	cl_event event = getObj<cl_event>(packet.mID);
+
+	SimplePacket<PacketType::Payload, uint64_t> reply;
+	size_t replySize = 0;
+	// All replies to getEventInfo will be sizeof(cl_ulong)
+	cl_int errCode = clGetEventProfilingInfo(event, packet.mData, sizeof(cl_ulong), &reply.mData, &replySize);
+	if (Unlikely(errCode != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(errCode);
+		return;
+	}
+
+	mStream.write(reply);
+}
+
 void ServerInstance::waitForEvents()
 {
 	mStream.read<WaitForEvents>();

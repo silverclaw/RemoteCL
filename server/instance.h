@@ -86,6 +86,8 @@ private:
 
 	void waitForEvents();
 	void createUserEvent();
+	void getEventInfo();
+	void getEventProfilingInfo();
 	void setUserEventStatus();
 
 	PacketStream mStream;

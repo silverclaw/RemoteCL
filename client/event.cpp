@@ -22,6 +22,9 @@
 #include "packets/IDs.h"
 #include "packets/commands.h"
 #include "packets/event.h"
+#include "packets/simple.h"
+
+#include <cstring>
 
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
@@ -128,6 +131,34 @@ clSetUserEventStatus(cl_event event, cl_int execution_status) CL_API_SUFFIX__VER
 		return CL_SUCCESS;
 	} catch (const std::bad_alloc&) {
 		return(CL_OUT_OF_HOST_MEMORY);
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clGetEventProfilingInfo(cl_event event, cl_profiling_info param_name,
+                        size_t param_value_size, void* param_value,
+                        size_t* param_value_size_ret) CL_API_SUFFIX__VERSION_1_0
+{
+	if (event == nullptr) return CL_INVALID_EVENT;
+
+	try {
+		IDType id = GetID(event);
+		auto conn = gConnection.get();
+		conn->write<GetEventProfilingInfo>({id, param_name});
+		conn->flush();
+
+		// All event queries will be 64bits (a cl_ulong).
+		auto payload = conn->read<SimplePacket<PacketType::Payload, uint64_t>>();
+		if (param_value_size_ret) *param_value_size_ret = sizeof(cl_ulong);
+		if (param_value && param_value_size >= sizeof(cl_ulong)) {
+			std::memcpy(param_value, &payload.mData, sizeof(cl_ulong));
+		}
+
+		return CL_SUCCESS;
 	} catch (const ErrorPacket& e) {
 		return e.mData;
 	} catch (...) {

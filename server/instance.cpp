@@ -208,6 +208,12 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::CreateUserEvent:
 			createUserEvent();
 			break;
+		case PacketType::GetEventProfilingInfo:
+			getEventProfilingInfo();
+			break;
+		case PacketType::GetEventInfo:
+			getEventInfo();
+			break;
 		case PacketType::SetUserEventStatus:
 			setUserEventStatus();
 			break;

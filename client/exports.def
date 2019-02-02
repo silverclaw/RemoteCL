@@ -27,6 +27,7 @@ clGetCommandQueueInfo
 clGetContextInfo
 clGetDeviceIDs
 clGetDeviceInfo
+clGetEventProfilingInfo
 clGetImageInfo
 clGetKernelArgInfo
 clGetKernelInfo

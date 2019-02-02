@@ -21,11 +21,14 @@
 
 #include "idtype.h"
 #include "packets/simple.h"
+#include "packets/IDs.h"
 
 namespace RemoteCL
 {
 using CreateUserEvent = SimplePacket<PacketType::CreateUserEvent, IDType>;
 using SetUserEventStatus = IDTypePair<PacketType::SetUserEventStatus, uint32_t>;
+using GetEventInfo = IDParamPair<PacketType::GetEventInfo>;
+using GetEventProfilingInfo = IDParamPair<PacketType::GetEventProfilingInfo>;
 using WaitForEvents = SignalPacket<PacketType::WaitEvents>;
 }
 
