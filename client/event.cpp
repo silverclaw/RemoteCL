@@ -36,7 +36,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue, cl_kernel kernel,
 {
 	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
 	if (kernel == nullptr) return CL_INVALID_KERNEL;
-	if (work_dim >= 3) return CL_INVALID_VALUE;
+	if (work_dim == 0 || work_dim > 3) return CL_INVALID_VALUE;
 
 	try {
 		EnqueueKernel E;
