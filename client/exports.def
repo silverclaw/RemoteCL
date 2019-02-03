@@ -11,6 +11,7 @@ clCreateImage
 clCreateImage2D
 clCreateImage3D
 clCreateKernel
+clCreateKernelsInProgram
 clCreateProgramWithBinary
 clCreateProgramWithSource
 clCreateSubBuffer

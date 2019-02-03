@@ -52,6 +52,51 @@ clCreateKernel(cl_program program, const char* kernel_name, cl_int* errcode_ret)
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clCreateKernelsInProgram(cl_program program,
+                         cl_uint num_kernels,
+                         cl_kernel* kernels,
+                         cl_uint* num_kernels_ret) CL_API_SUFFIX__VERSION_1_0
+{
+	if (program == nullptr) return CL_INVALID_PROGRAM;
+	if (num_kernels != 0 && kernels == nullptr) return CL_INVALID_VALUE;
+	if (num_kernels == 0 && kernels != nullptr) return CL_INVALID_VALUE;
+
+	try {
+		auto conn = gConnection.get();
+		CreateKernels createKernels;
+		createKernels.mProgramID = GetID(program);
+		createKernels.mKernelCount = num_kernels;
+		conn->write(createKernels);
+		conn->flush();
+
+		// Depending on operating mode, we either get the kernel count or the list.
+		if (num_kernels == 0) {
+			assert(kernels == nullptr && "Should have been validated.");
+			auto count = conn->read<SimplePacket<PacketType::Payload, uint32_t>>();
+			if (num_kernels_ret) {
+				*num_kernels_ret = count.mData;
+			}
+			return CL_SUCCESS;
+		}
+
+		IDListPacket list = conn->read<IDListPacket>();
+		assert(list.mIDs.size() <= num_kernels && "Remote API should have validated this.");
+		for (IDType id : list.mIDs) {
+			*kernels = conn.registerID<Kernel>(id);
+			kernels++;
+			if (num_kernels_ret) *num_kernels_ret += 1;
+		}
+		return CL_SUCCESS;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (std::bad_alloc&) {
+		return CL_OUT_OF_HOST_MEMORY;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clSetKernelArg(cl_kernel kernel, cl_uint arg_index,
                size_t arg_size, const void* arg_value) CL_API_SUFFIX__VERSION_1_0
 {

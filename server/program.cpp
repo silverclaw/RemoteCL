@@ -214,6 +214,42 @@ void ServerInstance::createKernel()
 	}
 }
 
+void ServerInstance::createKernels()
+{
+	CreateKernels packet = mStream.read<CreateKernels>();
+	cl_program program = getObj<cl_program>(packet.mProgramID);
+
+	cl_uint kernelCount = 0;
+	if (packet.mKernelCount == 0) {
+		// No returned kernels requested, this is a query
+		// to get the number of generatble kernels.
+		cl_int err = clCreateKernelsInProgram(program, 0, nullptr, &kernelCount);
+		if (Unlikely(err != CL_SUCCESS)) {
+			mStream.write<ErrorPacket>(err);
+			return;
+		}
+		mStream.write<SimplePacket<PacketType::Payload, uint32_t>>(kernelCount);
+		return;
+	}
+
+	std::vector<cl_kernel> kernels;
+	kernels.resize(packet.mKernelCount);
+	cl_int err = clCreateKernelsInProgram(program, packet.mKernelCount, kernels.data(), &kernelCount);
+
+	if (Unlikely(err != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(err);
+		return;
+	}
+	assert(kernelCount <= packet.mKernelCount);
+
+	IDListPacket reply;
+	reply.mIDs.resize(kernelCount);
+	for (cl_uint i = 0; i < kernelCount; ++i) {
+		reply.mIDs[i] = getIDFor(kernels[i]);
+	}
+	mStream.write(reply);
+}
+
 void ServerInstance::cloneKernel()
 {
 #if (CL_TARGET_OPENCL_VERSION >= 210)

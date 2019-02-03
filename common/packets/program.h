@@ -62,6 +62,16 @@ struct KernelWGInfo final : public Packet
 	uint32_t mParam;
 };
 
+struct CreateKernels final : public Packet
+{
+	CreateKernels() : Packet(PacketType::CreateKernels) {}
+
+	/// The ID of the parent program.
+	IDType mProgramID;
+	/// The number of kernels to be created.
+	uint32_t mKernelCount;
+};
+
 using BinaryProgram = SimplePacket<PacketType::CreateBinaryProgram, IDType>;
 using ProgramSource = IDStringPair<PacketType::CreateSourceProgram>;
 using KernelName = IDStringPair<PacketType::CreateKernel>;
@@ -153,6 +163,20 @@ inline SocketStream& operator >>(SocketStream& i, KernelWGInfo& arg)
 	i >> arg.mKernelID;
 	i >> arg.mDeviceID;
 	i >> arg.mParam;
+	return i;
+}
+
+inline SocketStream& operator <<(SocketStream& o, const CreateKernels& arg)
+{
+	o << arg.mProgramID;
+	o << arg.mKernelCount;
+	return o;
+}
+
+inline SocketStream& operator >>(SocketStream& i, CreateKernels& arg)
+{
+	i >> arg.mProgramID;
+	i >> arg.mKernelCount;
 	return i;
 }
 }

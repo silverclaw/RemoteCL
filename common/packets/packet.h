@@ -64,6 +64,7 @@ enum class PacketType : uint8_t
 
 	// Kernel functions.
 	CreateKernel,
+	CreateKernels,
 	CloneKernel,
 	SetKernelArg,
 	KernelWGInfo,
