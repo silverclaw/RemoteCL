@@ -28,6 +28,7 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
 
+
 void ServerInstance::createImage()
 {
 	CreateImage packet = mStream.read<CreateImage>();
@@ -47,14 +48,43 @@ void ServerInstance::createImage()
 	desc.image_slice_pitch = packet.mSlicePitch;
 	desc.num_mip_levels = packet.mMipLevels;
 	desc.num_samples = packet.mSamples;
+	const bool expectPayload = (flags & CL_MEM_COPY_HOST_PTR) != 0;
+	// We handle this manually.
+	flags &= ~CL_MEM_COPY_HOST_PTR;
 
 	cl_int errCode = CL_SUCCESS;
 	cl_mem image = clCreateImage(context, flags, &format, &desc, nullptr, &errCode);
 	if (Unlikely(errCode != CL_SUCCESS)) {
 		mStream.write<ErrorPacket>(errCode);
-	} else {
-		mStream.write<IDPacket>(getIDFor(image));
+		return;
 	}
+
+	if (expectPayload) {
+		std::size_t pixelSize = 0;
+		std::size_t retSize = 0;
+		cl_int err = clGetImageInfo(image, CL_IMAGE_ELEMENT_SIZE, sizeof(std::size_t), &pixelSize, &retSize);
+		if (Unlikely(err != CL_SUCCESS)) {
+			mStream.write<ErrorPacket>(err);
+			return;
+		}
+		const uint32_t W = packet.mWidth == 0 ? 1 : packet.mWidth;
+		const uint32_t H = packet.mHeight == 0 ? 1 : packet.mHeight;
+		const uint32_t D = packet.mDepth == 0 ? 1 : packet.mDepth;
+		const uint32_t dataSize = pixelSize * W * H * D;
+		mStream.write<SimplePacket<PacketType::Payload, uint32_t>>({dataSize}).flush();
+		Payload<> imageData = mStream.read<Payload<>>();
+
+		// Recreate the image with the correct options.
+		clReleaseMemObject(image);
+		flags |= CL_MEM_COPY_HOST_PTR; // put this back in.
+		image = clCreateImage(context, flags, &format, &desc, imageData.mData.data(), &errCode);
+		if (Unlikely(errCode != CL_SUCCESS)) {
+			mStream.write<ErrorPacket>(errCode);
+			return;
+		}
+	}
+
+	mStream.write<IDPacket>(getIDFor(image));
 }
 
 void ServerInstance::readImage()

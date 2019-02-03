@@ -164,8 +164,10 @@ clCreateImage(cl_context context, cl_mem_flags flags,
 	if (context == nullptr) ReturnError(CL_INVALID_CONTEXT);
 	if (image_desc == nullptr) ReturnError(CL_INVALID_IMAGE_DESCRIPTOR);
 	if (image_format == nullptr) ReturnError(CL_INVALID_IMAGE_FORMAT_DESCRIPTOR);
-	// We don't support host ptr yet.
-	if (host_ptr != nullptr) ReturnError(CL_INVALID_OPERATION);
+	// We don't support use host ptr.
+	if (host_ptr != nullptr && (flags & CL_MEM_USE_HOST_PTR) != 0) ReturnError(CL_INVALID_OPERATION);
+	if (host_ptr != nullptr && (flags & CL_MEM_ALLOC_HOST_PTR) != 0) ReturnError(CL_INVALID_OPERATION);
+	if ((flags & CL_MEM_COPY_HOST_PTR) != 0 && host_ptr == nullptr) ReturnError(CL_INVALID_VALUE);
 
 	try {
 		CreateImage packet;
@@ -187,8 +189,17 @@ clCreateImage(cl_context context, cl_mem_flags flags,
 
 		conn->write(packet);
 		conn->flush();
+		if ((flags & CL_MEM_COPY_HOST_PTR) != 0) {
+			// We need the server to tell us how much data to send.
+			auto dataSize = conn->read<SimplePacket<PacketType::Payload, uint32_t>>();
+			// Push out the image data.
+			conn->write<PayloadPtr<>>({host_ptr, dataSize}).flush();
+		}
+
 		if (errcode_ret) *errcode_ret = CL_SUCCESS;
-		return conn.getOrInsertObject<MemObject>(conn->read<IDPacket>());
+		IDType imageID = conn->read<IDPacket>();
+		cl_mem image = conn.getOrInsertObject<MemObject>(imageID);
+		return image;
 	} catch (const ErrorPacket& e) {
 		ReturnError(e.mData);
 	} catch (...) {
