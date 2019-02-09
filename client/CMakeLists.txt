@@ -1,7 +1,9 @@
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_SOURCE_DIR ON)
 
-add_library(RemoteCLClient EXCLUDE_FROM_ALL SHARED
+option(BUILD_SHARED_LIBS "Build the client as a shared library." ON)
+
+add_library(RemoteCLClient EXCLUDE_FROM_ALL
 	connection.cpp
 	context.cpp
 	device.cpp

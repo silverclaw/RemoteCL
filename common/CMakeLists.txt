@@ -1,4 +1,4 @@
-add_library(RemoteCL EXCLUDE_FROM_ALL
+add_library(RemoteCL EXCLUDE_FROM_ALL STATIC
 	socket.cpp
 	socketstream.cpp)
 
