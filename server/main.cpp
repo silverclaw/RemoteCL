@@ -20,6 +20,8 @@
 #include <thread>
 #else
 #include <unistd.h> // for fork()
+#include <signal.h>
+#include <bits/signum.h>
 #endif
 #include <system_error>
 
@@ -29,8 +31,28 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
 
+#if !defined(REMOTECL_SERVER_USE_THREADS)
+namespace
+{
+/// Sets the calling process to ignore child process status updates.
+void IgnoreSigChild()
+{
+	struct sigaction action;
+	action.sa_handler = SIG_IGN;
+	action.sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT;
+	if (sigaction(SIGCHLD, &action, nullptr) != 0) {
+		std::cerr << "Unable to set ignore child signals - child processes will become zombies." << std::endl;
+	}
+}
+}
+#endif
+
 int main(int argc, char* argv[])
 {
+#if !defined(REMOTECL_SERVER_USE_THREADS)
+	// We don't care about child processes ending.
+	IgnoreSigChild();
+#endif
 	uint16_t port = Socket::DefaultPort;
 	for (int i = 1; i < argc; ++i) {
 		// The only argument we currently support is "--port".
