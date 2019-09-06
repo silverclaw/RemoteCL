@@ -17,10 +17,12 @@ clCreateProgramWithSource
 clCreateSubBuffer
 clCreateUserEvent
 clEnqueueFillBuffer
+clEnqueueMapBuffer
 clEnqueueNDRangeKernel
 clEnqueueReadBuffer
 clEnqueueReadBufferRect
 clEnqueueReadImage
+clEnqueueUnmapMemObject
 clEnqueueWriteBuffer
 clEnqueueWriteImage
 clFinish
