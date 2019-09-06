@@ -104,6 +104,50 @@ void ServerInstance::readBuffer()
 	mStream.write<PayloadPtr<>>({data.data(), data.size()});
 }
 
+void ServerInstance::readBufferRect()
+{
+	ReadBufferRect packet = mStream.read<ReadBufferRect>();
+
+	std::vector<cl_event> events;
+	if (packet.mExpectEventList) {
+		IDListPacket eventList = mStream.read<IDListPacket>();
+		events.reserve(eventList.mIDs.size());
+		for (IDType id : eventList.mIDs) {
+			events.push_back(getObj<cl_event>(id));
+		}
+	}
+
+	std::vector<uint8_t> data;
+	size_t row_pitch = packet.mHostRowPitch > 0 ? packet.mHostRowPitch : packet.mRegion[0];
+	size_t slice_pitch = packet.mHostSlicePitch > 0 ? packet.mHostSlicePitch : packet.mRegion[1] * row_pitch;
+	size_t dataSize = slice_pitch * packet.mRegion[2];
+	data.resize(dataSize);
+
+	cl_event retEvent;
+	cl_event* event = packet.mWantEvent ? &retEvent : nullptr;
+	cl_mem buffer = getObj<cl_mem>(packet.mBufferID);
+	cl_command_queue queue = getObj<cl_command_queue>(packet.mQueueID);
+	std::size_t bufferOrigin[3] = {packet.mBufferOrigin[0], packet.mBufferOrigin[1],
+								   packet.mBufferOrigin[2]};
+	std::size_t hostOrigin[3] = {packet.mHostOrigin[0], packet.mHostOrigin[1],
+								 packet.mHostOrigin[2]};
+	std::size_t region[3] = {packet.mRegion[0], packet.mRegion[1], packet.mRegion[2]};
+	// We don't support background reading of buffer data, so block the command.
+	cl_int err = clEnqueueReadBufferRect(queue, buffer, true, bufferOrigin, hostOrigin, region,
+	                                     packet.mBufferRowPitch, packet.mBufferSlicePitch,
+	                                     packet.mHostRowPitch, packet.mHostSlicePitch,
+	                                     data.data(), events.size(), events.data(), event);
+
+	if (Unlikely(err != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(err);
+		return;
+	}
+	if (packet.mWantEvent) {
+		mStream.write<IDPacket>(getIDFor(retEvent));
+	}
+	mStream.write<PayloadPtr<>>({data.data(), data.size()});
+}
+
 void ServerInstance::writeBuffer()
 {
 	WriteBuffer packet = mStream.read<WriteBuffer>();

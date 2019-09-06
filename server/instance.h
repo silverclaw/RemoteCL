@@ -78,6 +78,7 @@ private:
 	void createBuffer();
 	void createSubBuffer();
 	void readBuffer();
+	void readBufferRect();
 	void writeBuffer();
 	void fillBuffer();
 

@@ -73,7 +73,25 @@ struct BufferRW final : public Packet
 	bool mBlock;
 };
 
+template<PacketType Type>
+struct BufferRectRW final : public Packet
+{
+	BufferRectRW() noexcept : Packet(Type) {}
+
+	IDType mBufferID;
+	IDType mQueueID;
+	std::array<uint32_t, 3> mBufferOrigin;
+	std::array<uint32_t, 3> mHostOrigin;
+	std::array<uint32_t, 3> mRegion;
+	uint32_t mBufferRowPitch, mBufferSlicePitch;
+	uint32_t mHostRowPitch, mHostSlicePitch;
+	bool mWantEvent = false;
+	bool mExpectEventList = false;
+	bool mBlock;
+};
+
 using ReadBuffer = BufferRW<PacketType::ReadBuffer>;
+using ReadBufferRect = BufferRectRW<PacketType::ReadBufferRect>;
 using WriteBuffer = BufferRW<PacketType::WriteBuffer>;
 
 struct FillBuffer final : public Packet
@@ -183,6 +201,44 @@ SocketStream& operator >>(SocketStream& i, BufferRW<Type>& E)
 	i >> E.mQueueID;
 	i >> E.mSize;
 	i >> E.mOffset;
+	i >> E.mWantEvent;
+	i >> E.mExpectEventList;
+	i >> E.mBlock;
+
+	return i;
+}
+
+template<PacketType Type>
+SocketStream& operator <<(SocketStream& o, const BufferRectRW<Type>& E)
+{
+	o << E.mBufferID;
+	o << E.mQueueID;
+	o << E.mBufferOrigin;
+	o << E.mHostOrigin;
+	o << E.mRegion;
+	o << E.mBufferRowPitch;
+	o << E.mBufferSlicePitch;
+	o << E.mHostRowPitch;
+	o << E.mHostSlicePitch;
+	o << E.mWantEvent;
+	o << E.mExpectEventList;
+	o << E.mBlock;
+
+	return o;
+}
+
+template<PacketType Type>
+SocketStream& operator >>(SocketStream& i, BufferRectRW<Type>& E)
+{
+	i >> E.mBufferID;
+	i >> E.mQueueID;
+	i >> E.mBufferOrigin;
+	i >> E.mHostOrigin;
+	i >> E.mRegion;
+	i >> E.mBufferRowPitch;
+	i >> E.mBufferSlicePitch;
+	i >> E.mHostRowPitch;
+	i >> E.mHostSlicePitch;
 	i >> E.mWantEvent;
 	i >> E.mExpectEventList;
 	i >> E.mBlock;
