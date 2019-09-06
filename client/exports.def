@@ -19,6 +19,7 @@ clCreateUserEvent
 clEnqueueFillBuffer
 clEnqueueNDRangeKernel
 clEnqueueReadBuffer
+clEnqueueReadBufferRect
 clEnqueueReadImage
 clEnqueueWriteBuffer
 clEnqueueWriteImage

@@ -136,6 +136,70 @@ clEnqueueReadBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool block
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueReadBufferRect(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_read,
+                        const size_t* buffer_origin, const size_t* host_origin,
+                        const size_t* region, size_t buffer_row_pitch, size_t buffer_slice_pitch,
+                        size_t host_row_pitch, size_t host_slice_pitch, void* ptr,
+                        cl_uint num_events_in_wait_list, const cl_event* event_wait_list,
+                        cl_event* event) CL_API_SUFFIX__VERSION_1_0
+{
+	if (command_queue == nullptr) return CL_INVALID_COMMAND_QUEUE;
+	if (buffer == nullptr) return CL_INVALID_MEM_OBJECT;
+
+	try {
+		ReadBufferRect E;
+
+		E.mBlock = blocking_read;
+
+		if (event) E.mWantEvent = true;
+		IDListPacket eventList;
+		if (num_events_in_wait_list) {
+			if (!event_wait_list) return CL_INVALID_EVENT_WAIT_LIST;
+			E.mExpectEventList = true;
+			eventList.mIDs.reserve(num_events_in_wait_list);
+			for (unsigned i = 0; i < num_events_in_wait_list; ++i) {
+				if (!event_wait_list[i]) return CL_INVALID_EVENT;
+				eventList.mIDs.push_back(GetID(event_wait_list[i]));
+			}
+		}
+
+		E.mBufferID = GetID(buffer);
+		E.mBufferOrigin[0] = buffer_origin[0];
+		E.mBufferOrigin[1] = buffer_origin[1];
+		E.mBufferOrigin[2] = buffer_origin[2];
+		E.mHostOrigin[0] = host_origin[0];
+		E.mHostOrigin[1] = host_origin[1];
+		E.mHostOrigin[2] = host_origin[2];
+		E.mRegion[0] = region[0];
+		E.mRegion[1] = region[1];
+		E.mRegion[2] = region[2];
+		E.mBufferRowPitch = buffer_row_pitch;
+		E.mBufferRowPitch = buffer_slice_pitch;
+		E.mBufferRowPitch = host_row_pitch;
+		E.mBufferRowPitch = host_slice_pitch;
+		E.mQueueID = GetID(command_queue);
+
+		auto conn = gConnection.get();
+
+		conn->write(E);
+		if (num_events_in_wait_list) {
+			conn->write(eventList);
+		}
+		conn->flush();
+
+		if (event) *event = conn.registerID<Event>(conn->read<IDPacket>());
+		conn->read<PayloadInto<>>({ptr});
+		return CL_SUCCESS;
+	} catch (const std::bad_alloc&) {
+		return CL_OUT_OF_HOST_MEMORY;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueWriteBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write,
                      size_t offset, size_t size, const void* ptr,
                      cl_uint num_events_in_wait_list, const cl_event* event_wait_list,

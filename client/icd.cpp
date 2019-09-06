@@ -105,7 +105,7 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clSetMemObjectDestructorCallback,
 	clCreateUserEvent,
 	clSetUserEventStatus,
-	nullptr, //clEnqueueReadBufferRect,
+	clEnqueueReadBufferRect,
 	nullptr, //clEnqueueWriteBufferRect,
 	nullptr, //clEnqueueCopyBufferRect,
 	nullptr, //clCreateSubDevicesEXT,

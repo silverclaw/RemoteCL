@@ -75,6 +75,7 @@ enum class PacketType : uint8_t
 	CreateBuffer,
 	CreateSubBuffer,
 	ReadBuffer,
+	ReadBufferRect,
 	WriteBuffer,
 	FillBuffer,
 	GetMemObjInfo,
