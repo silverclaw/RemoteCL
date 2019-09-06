@@ -178,6 +178,9 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::ReadBuffer:
 			readBuffer();
 			break;
+		case PacketType::ReadBufferRect:
+			readBufferRect();
+			break;
 		case PacketType::WriteBuffer:
 			writeBuffer();
 			break;
