@@ -94,6 +94,10 @@ Connection::Connection() noexcept
 			std::cerr << "The RemoteCL server version is not compatible with this client. Disconnecting.\n";
 			mStream.reset();
 		}
+
+		// Preallocate slots for CL objects. This is an estimate of how
+		// many objects will be used throughout the lifetime of the connection.
+		mObjects.reserve(64);
 	}
 	catch (...) {
 		// TODO: Check errno. Should probably attach it to SocketError.
@@ -107,7 +111,7 @@ Connection::~Connection()
 	WSACleanup();
 #endif
 
-	for (auto& pair : mObjects) delete pair.second;
+	mObjects.clear();
 	if (mStream) {
 		try {
 			// Not strictly required because the socket will close anyway.

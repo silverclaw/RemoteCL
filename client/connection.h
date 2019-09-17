@@ -19,7 +19,7 @@
 #include <iostream>
 #include <list>
 #include <memory>
-#include <map>
+#include <vector>
 #include <type_traits>
 #include <mutex>
 #include <memory>
@@ -53,7 +53,7 @@ private:
 	std::unique_ptr<PacketStream> mStream;
 	/// All of the objects that have been queried by the client.
 	/// Each will have a unique ID which is effectively an index into this vector.
-	std::map<IDType, CLObject*> mObjects;
+	std::vector<std::unique_ptr<CLObject>> mObjects;
 	/// Buffers that are mapped on client side.
 	std::list<CLMappedBuffer> mMappedBuffers;
 	std::mutex mMutex;
@@ -82,8 +82,8 @@ public:
 	ObjTy* getObject(IDType id)
 	{
 		static_assert(std::is_base_of<CLObject, ObjTy>::value, "Invalid object queried");
-		// std::map default-initialises to nullptr, which is what we want.
-		return static_cast<ObjTy*>(mParent.mObjects[id]);
+		// std::vector default-initialises to nullptr, which is what we want.
+		return static_cast<ObjTy*>(mParent.mObjects[id].get());
 	}
 
 	CLMappedBuffer* getBufferMapping(void* mappedPointer)
@@ -105,8 +105,9 @@ public:
 		static_assert(std::is_base_of<CLObject, ObjTy>::value, "Invalid object queried");
 		std::unique_ptr<ObjTy> obj(new ObjTy(id));
 		ObjTy* ptr = obj.get();
-		mParent.mObjects.insert({id, ptr});
-		obj.release();
+		if (mParent.mObjects.size() <= id)
+			mParent.mObjects.resize(id+1);
+		mParent.mObjects[id] = std::move(obj);
 		return *ptr;
 	}
 
@@ -130,8 +131,8 @@ public:
 	ObjTy& getOrInsertObject(IDType id)
 	{
 		static_assert(std::is_base_of<CLObject, ObjTy>::value, "Invalid object queried");
-		auto it = mParent.mObjects.find(id);
-		if (it != mParent.mObjects.end()) return *static_cast<ObjTy*>(it->second);
+		if (id < mParent.mObjects.size())
+			return *static_cast<ObjTy*>(mParent.mObjects[id].get());
 		return registerID<ObjTy>(id);
 	}
 
