@@ -4,3 +4,4 @@
 build/
 .vs/
 CMakeSettings.json
+compile_commands.json
