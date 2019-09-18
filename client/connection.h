@@ -25,7 +25,6 @@
 #include <memory>
 
 #include "idtype.h"
-#include "memmapping.h"
 #include "packetstream.h"
 
 namespace RemoteCL
@@ -54,8 +53,6 @@ private:
 	/// All of the objects that have been queried by the client.
 	/// Each will have a unique ID which is effectively an index into this vector.
 	std::vector<std::unique_ptr<CLObject>> mObjects;
-	/// Buffers that are mapped on client side.
-	std::list<CLMappedBuffer> mMappedBuffers;
 	std::mutex mMutex;
 };
 
@@ -86,19 +83,6 @@ public:
 		return static_cast<ObjTy*>(mParent.mObjects[id].get());
 	}
 
-	CLMappedBuffer* getBufferMapping(void* mappedPointer)
-	{
-		// Find the view that is associated with the mapped pointer.
-		// Necessary because a CL buffer can be mapped to multiple views depending on access flags.
-		for (auto& view : mParent.mMappedBuffers) {
-			if (view.data.get() == mappedPointer) {
-				return &view;
-			}
-		}
-
-		return nullptr;
-	}
-
 	template<typename ObjTy>
 	ObjTy& registerID(IDType id)
 	{
@@ -109,22 +93,6 @@ public:
 			mParent.mObjects.resize(id+1);
 		mParent.mObjects[id] = std::move(obj);
 		return *ptr;
-	}
-
-	CLMappedBuffer& registerBufferMapping(IDType id)
-	{
-		mParent.mMappedBuffers.emplace_back(id);
-		return mParent.mMappedBuffers.back();
-	}
-
-	void unregisterBufferMapping(void* mappedPointer)
-	{
-		for (auto it = mParent.mMappedBuffers.begin(); it != mParent.mMappedBuffers.end(); it++) {
-			if (it->data.get() == mappedPointer) {
-				mParent.mMappedBuffers.erase(it);
-				return;
-			}
-		}
 	}
 
 	template<typename ObjTy>

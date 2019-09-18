@@ -20,7 +20,6 @@
 #include "hints.h"
 #include "connection.h"
 #include "apiutil.h"
-#include "memmapping.h"
 #include "packets/refcount.h"
 #include "packets/memory.h"
 #include "packets/IDs.h"
@@ -92,36 +91,48 @@ clEnqueueMapBuffer(cl_command_queue command_queue, cl_mem buffer, cl_bool blocki
                    cl_event* event, cl_int *errcode_ret) CL_API_SUFFIX__VERSION_1_0
 {
 	if (buffer == nullptr) ReturnError(CL_INVALID_MEM_OBJECT)
-
-	void* ptr = nullptr;
+	if ((map_flags & ~(CL_MAP_READ | CL_MAP_WRITE)) != 0) ReturnError(CL_INVALID_VALUE);
+	// We don't know the buffer's size and offset and as such cannot validate
+	// those arguments. As a possible fix, we could save those parameters when
+	// constructing the memory object.
 
 	try {
-		auto conn = gConnection.get();
-		auto& buf = conn.registerBufferMapping(GetID(buffer));
+		MemObject& obj = Unwrappers::Unwrap(buffer);
+		auto& mapping = obj.getMapping(size, offset, map_flags);
+		void* ptr = mapping;
 
-		buf.data.reset(new uint8_t[size]);
-		buf.flags = map_flags;
-		buf.offset = offset;
-		buf.size = size;
-		ptr = reinterpret_cast<void*>(buf.data.get());
+		if ((map_flags & CL_MAP_READ) != 0) {
+			cl_uint ret =
+				clEnqueueReadBuffer(command_queue, buffer, blocking_map, offset, size, ptr,
+				                    num_events_in_wait_list, event_wait_list, event);
+			if (ret != CL_SUCCESS) {
+				obj.dropMapping(mapping);
+				// A readbuffer will likely fail due to bad size/offset pairs.
+				ReturnError(CL_INVALID_VALUE);
+			}
+		} else if (blocking_map && event_wait_list && num_events_in_wait_list != 0) {
+			// The host application expects these events to be completed
+			// on a blocking map.
+			clWaitForEvents(num_events_in_wait_list, event_wait_list);
+		}
+
+		// A successful mapping requires retaining the buffer.
+		// This is because we don't propagate the map to the server, and it is
+		// possible that an application releases the buffer expecting the mapping
+		// to be preserved. In practice this shouldn't be a problem, as it would
+		// only be relevant on WRITE'able buffers (where we'd have to flush out the
+		// data to server on Unmap), which wouldn't make sense on a buffer that's
+		// about to be killed.
+		clRetainMemObject(buffer);
+
+		if (errcode_ret) *errcode_ret = CL_SUCCESS;
+		return mapping;
+
 	} catch (...) {
 		ReturnError(CL_OUT_OF_HOST_MEMORY)
 	}
 
-	cl_int ret = CL_SUCCESS;
-
-	if (map_flags & CL_MAP_READ) {
-		ret = clEnqueueReadBuffer(command_queue, buffer, blocking_map, offset, size, ptr,
-                                  num_events_in_wait_list, event_wait_list, event);
-		if (ret != CL_SUCCESS) {
-			ReturnError(ret)
-		}
-	}
-
-	ret = clRetainMemObject(buffer);
-	if (errcode_ret) *errcode_ret = ret;
-
-	return ptr;
+	Unreachable();
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
@@ -246,28 +257,39 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue, cl_mem memobj, void* map
 {
 	if (memobj == nullptr) return CL_INVALID_MEM_OBJECT;
 
-	const CLMappedBuffer *buf = nullptr;
-	cl_int ret;
+	try {
+		MemObject& obj = Unwrappers::Unwrap(memobj);
+		auto& mapping = obj.getMapping(mapped_ptr);
 
-	{
-		auto conn = gConnection.get();
-		buf = conn.getBufferMapping(mapped_ptr);
-	}
-
-	if (buf == nullptr) return CL_INVALID_VALUE;
-
-	if (buf->flags & CL_MAP_WRITE) {
-		ret = clEnqueueWriteBuffer(command_queue, memobj, true, buf->offset,
-                                   buf->size, buf->data.get(),
+		if ((mapping.flags & CL_MAP_WRITE) != 0) {
+			// Flush out any pending writes.
+			// This can potentially block the host application if the mapping was
+			// created with invalid parameters (size and offset are out of bounds).
+			// In that case, a WriteBuffer will always fail.
+			cl_uint ret = clEnqueueWriteBuffer(command_queue, memobj, true, mapping.offset,
+                                   mapping.size, mapping,
                                    num_events_in_wait_list, event_wait_list, event);
-		if (ret != CL_SUCCESS) {
-			return ret;
+			if (ret != CL_SUCCESS) {
+				return ret;
+			}
+		} else {
+			// Because we don't propagate this to the server, we don't have an event to provide.
+			if (event) return CL_INVALID_OPERATION;
+
+			if (num_events_in_wait_list != 0 && event_wait_list) {
+				// We have to block because there might be pending events using this object.
+				clWaitForEvents(num_events_in_wait_list, event_wait_list);
+			}
 		}
+
+		obj.dropMapping(mapped_ptr);
+		// Mirror the clRetain on the MapMemObject.
+		clReleaseMemObject(memobj);
+		return CL_SUCCESS;
+	} catch (...) {
+		// May be triggered if the mapping isn't owned by this object.
+		return CL_INVALID_VALUE;
 	}
-
-	gConnection.get().unregisterBufferMapping(mapped_ptr);
-
-	return clReleaseMemObject(memobj);
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL

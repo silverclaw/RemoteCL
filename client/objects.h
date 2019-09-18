@@ -21,6 +21,10 @@
 
 #include "idtype.h"
 
+#include <list>
+#include <memory>
+#include <mutex>
+
 namespace RemoteCL
 {
 namespace Client
@@ -103,9 +107,77 @@ struct Kernel final : public ICDDispatchable<Kernel, cl_kernel>
 	using ICDDispatchable::ICDDispatchable;
 };
 
-struct MemObject final : public ICDDispatchable<MemObject, cl_mem>
+class MemObject final : public ICDDispatchable<MemObject, cl_mem>
 {
+public:
 	using ICDDispatchable::ICDDispatchable;
+
+	/// Represents a mapping of this object.
+	class Mapping
+	{
+	public:
+		Mapping(std::size_t size, std::size_t offset, cl_map_flags flags) :
+			data(new uint8_t[size]), size(size), offset(offset), flags(flags) {}
+
+		operator void*() noexcept
+		{
+			return static_cast<void*>(data.get());
+		}
+
+		bool operator==(void* ptr) const noexcept
+		{
+			return ptr == data.get();
+		}
+
+	private:
+		std::unique_ptr<uint8_t[]> data;
+
+	public:
+		const size_t size;
+		const size_t offset;
+		const cl_map_flags flags;
+	};
+
+	/// Retrieves a memory buffer which can be used to map this Memory Object.
+	Mapping& getMapping(std::size_t size, std::size_t offset, cl_map_flags flags)
+	{
+		std::unique_lock<std::mutex> lock(mMutex);
+		mMappings.emplace_back(size, offset, flags);
+		return mMappings.back();
+	}
+
+	Mapping& getMapping(void* ptr)
+	{
+		std::unique_lock<std::mutex> lock(mMutex);
+		for (auto it = mMappings.begin(); it != mMappings.end(); ++it) {
+			if (*it == ptr) {
+				return *it;
+			}
+		}
+
+		throw CL_INVALID_VALUE;
+	}
+
+	/// Releases this memory buffer.
+	void dropMapping(void* ptr)
+	{
+		std::unique_lock<std::mutex> lock(mMutex);
+		for (auto it = mMappings.begin(); it != mMappings.end(); ++it) {
+			if (*it == ptr) {
+				mMappings.erase(it);
+				return;
+			}
+		}
+		// Ownership of the mapping must have been estabilished.
+		throw CL_INVALID_VALUE;
+	}
+
+private:
+	/// List of mappings on this memory object.
+	std::list<Mapping> mMappings;
+	/// Mutex used to synchronise reading/writing of mappings.
+	std::mutex mMutex;
+
 };
 
 struct Event final : public ICDDispatchable<Event, cl_event>
