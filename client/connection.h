@@ -16,14 +16,18 @@
 #if !defined(REMOTECL_CLIENT_CONNECTION_H)
 #define REMOTECL_CLIENT_CONNECTION_H
 
+#include <atomic>
 #include <iostream>
 #include <list>
 #include <memory>
+#include <map>
+#include <thread>
 #include <vector>
 #include <type_traits>
 #include <mutex>
 #include <memory>
 
+#include "eventchannel.h"
 #include "idtype.h"
 #include "memmapping.h"
 #include "packetstream.h"
@@ -51,11 +55,18 @@ public:
 private:
 	friend class LockedConnection;
 	std::unique_ptr<PacketStream> mStream;
+	std::unique_ptr<PacketStream> mEventStream;
 	/// All of the objects that have been queried by the client.
 	/// Each will have a unique ID which is effectively an index into this vector.
 	std::vector<std::unique_ptr<CLObject>> mObjects;
 	/// Buffers that are mapped on client side.
 	std::list<CLMappedBuffer> mMappedBuffers;
+	/// Registered event callbacks.
+	std::list<CLEventCallback> mEventCallbacks;
+	/// Event callback listener.
+	std::thread mEventCallbackWorker;
+	/// Connection state for the event thread.
+	std::atomic<bool> mActive;
 	std::mutex mMutex;
 };
 
@@ -69,6 +80,7 @@ private:
 		mLock(parent.mMutex), mParent(parent)
 	{
 		if (!parent.mStream) throw Socket::Error();
+		if (!parent.mEventStream) throw Socket::Error();
 	}
 
 	std::unique_lock<std::mutex> mLock;
@@ -99,6 +111,17 @@ public:
 		return nullptr;
 	}
 
+	CLEventCallback* getEventCallback(uint32_t id)
+	{
+		for (auto& cb : mParent.mEventCallbacks) {
+			if (cb.ID == id) {
+				return &cb;
+			}
+		}
+
+		return nullptr;
+	}
+
 	template<typename ObjTy>
 	ObjTy& registerID(IDType id)
 	{
@@ -117,11 +140,27 @@ public:
 		return mParent.mMappedBuffers.back();
 	}
 
+	CLEventCallback& registerEventCallback(CL_EVENT_CB cb)
+	{
+		mParent.mEventCallbacks.emplace_back(cb);
+		return mParent.mEventCallbacks.back();
+	}
+
 	void unregisterBufferMapping(void* mappedPointer)
 	{
 		for (auto it = mParent.mMappedBuffers.begin(); it != mParent.mMappedBuffers.end(); it++) {
 			if (it->data.get() == mappedPointer) {
 				mParent.mMappedBuffers.erase(it);
+				return;
+			}
+		}
+	}
+
+	void unregisterEventCallback(CL_EVENT_CB cb)
+	{
+		for (auto it = mParent.mEventCallbacks.begin(); it != mParent.mEventCallbacks.end(); it++) {
+			if (it->callback == cb) {
+				mParent.mEventCallbacks.erase(it);
 				return;
 			}
 		}
@@ -136,7 +175,7 @@ public:
 		return registerID<ObjTy>(id);
 	}
 
-	/// Send and receive packets through this connection.
+	/// Send and receive command packets through this connection.
 	PacketStream* operator->() noexcept
 	{
 		return mParent.mStream.get();

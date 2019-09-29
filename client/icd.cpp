@@ -100,7 +100,7 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clCreateFromD3D10Texture3DKHR,
 	nullptr, //clEnqueueAcquireD3D10ObjectsKHR,
 	nullptr, //clEnqueueReleaseD3D10ObjectsKHR,
-	nullptr, //clSetEventCallback,
+	clSetEventCallback,
 	clCreateSubBuffer,
 	nullptr, //clSetMemObjectDestructorCallback,
 	clCreateUserEvent,

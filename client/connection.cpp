@@ -21,6 +21,7 @@
 #include "objects.h"
 #include "packets/version.h"
 #include "packets/terminate.h"
+#include "packets/event.h"
 
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
@@ -86,6 +87,7 @@ Connection::Connection() noexcept
 		}
 
 		mStream.reset(new PacketStream(Socket(serverName.c_str(), port)));
+		mEventStream.reset(new PacketStream(Socket(serverName.c_str(), port+1)));
 
 		VersionPacket serverVersion = mStream->read<VersionPacket>();
 		VersionPacket currentVersion;
@@ -93,6 +95,9 @@ Connection::Connection() noexcept
 			// The versions are not compatible
 			std::cerr << "The RemoteCL server version is not compatible with this client. Disconnecting.\n";
 			mStream.reset();
+			mEventStream.reset();
+		} else {
+			mActive = true;
 		}
 
 		// Preallocate slots for CL objects. This is an estimate of how
@@ -103,6 +108,28 @@ Connection::Connection() noexcept
 		// TODO: Check errno. Should probably attach it to SocketError.
 		std::cerr << "RemoteCL Client failed to initialise." << std::endl;
 	}
+
+	mEventCallbackWorker = std::thread([&]() {
+		while (mActive) {
+			FireEventCallback E;
+
+			try {
+				mEventStream->read(E);
+				for (const auto &cb : mEventCallbacks) {
+					if (cb.ID == E.mData) {
+						cb.callback(cb.event, cb.callbackType, cb.userData);
+					}
+				}
+			} catch (Socket::Error) {
+				// PacketStream will throw this error when a terminate packet is received.
+				// The destructor will shut down the packet stream (and thus the associated socket
+				// stream as well), which throws a socket error in that case.
+				break;
+			} catch (...) {
+				// just keep on trying
+			}
+		}
+	});
 }
 
 Connection::~Connection()
@@ -112,6 +139,14 @@ Connection::~Connection()
 #endif
 
 	mObjects.clear();
+
+	mActive = false;
+	// shutdown the socket connection to unblock the event worker
+	mEventStream->shutdown();
+	if (mEventCallbackWorker.joinable()) {
+		mEventCallbackWorker.join();
+	}
+
 	if (mStream) {
 		try {
 			// Not strictly required because the socket will close anyway.

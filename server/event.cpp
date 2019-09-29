@@ -114,6 +114,30 @@ void ServerInstance::getEventProfilingInfo()
 	mStream.write(reply);
 }
 
+void ServerInstance::setEventCallback()
+{
+	SetEventCallback packet = mStream.read<SetEventCallback>();
+	cl_event event = getObj<cl_event>(packet.mEventID);
+
+	mEventCallbacks.emplace_back(packet.mID, [this](uint32_t id) {
+		// TODO: should we send callback packets immediately by flushing the packet stream?
+		mEventStream.write<FireEventCallback>({id});
+	});
+
+	cl_int errCode = clSetEventCallback(event, packet.mCallbackType,
+	                                    [](cl_event, cl_int, void* data) {
+	        EventCallback* cb = reinterpret_cast<EventCallback*>(data);
+            cb->func(cb->ID);
+        }, &mEventCallbacks.back());
+	if (Unlikely(errCode != CL_SUCCESS)) {
+		mEventCallbacks.pop_back();
+		mStream.write<ErrorPacket>(errCode);
+		return;
+	}
+
+	mStream.write<SuccessPacket>({});
+}
+
 void ServerInstance::waitForEvents()
 {
 	mStream.read<WaitForEvents>();

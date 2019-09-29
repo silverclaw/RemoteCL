@@ -16,7 +16,11 @@
 #if !defined(REMOTECL_SERVER_INSTANCE_H)
 #define REMOTECL_SERVER_INSTANCE_H
 
+#include <functional>
+#include <list>
 #include <vector>
+
+#include "CL/cl.h"
 
 #include "idtype.h"
 #include "socket.h"
@@ -29,7 +33,7 @@ namespace Server
 class ServerInstance
 {
 public:
-	ServerInstance(Socket socket);
+	ServerInstance(Socket commandSocket, Socket eventSocket);
 
 	void run();
 
@@ -91,8 +95,19 @@ private:
 	void getEventInfo();
 	void getEventProfilingInfo();
 	void setUserEventStatus();
+	void setEventCallback();
 
 	PacketStream mStream;
+	PacketStream mEventStream;
+
+	struct EventCallback {
+		EventCallback(uint32_t id, std::function<void(uint32_t id)> cb) noexcept : ID(id), func(cb) {}
+
+		uint32_t ID;
+		std::function<void(uint32_t id)> func;
+	};
+
+	std::list<EventCallback> mEventCallbacks;
 
 	/// Retrieves or assigns an ID for this object.
 	template<typename T>

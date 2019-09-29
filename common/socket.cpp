@@ -186,3 +186,15 @@ void RemoteCL::Socket::close() noexcept
 #endif
 	closesocket(mSocket);
 }
+
+void RemoteCL::Socket::shutdown() noexcept
+{
+	assert(mSocket != InvalidSocket);
+	int how;
+#if defined(WIN32)
+	how = SD_BOTH
+#else
+	how = SHUT_RDWR;
+#endif
+	::shutdown(mSocket, how);
+}

@@ -42,6 +42,9 @@ public:
 	/// Flushes the writes.
 	void flush() { if (mWriteOffset) { flushWriteBuffer(); } }
 
+	/// Shut down the stream, no more reads/writes are possible.
+	void shutdown() { mSocket.shutdown(); }
+
 	/// How many characters available for non-blocking read.
 	std::size_t available() const noexcept
 	{

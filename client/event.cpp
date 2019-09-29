@@ -18,6 +18,7 @@
 #include "hints.h"
 #include "connection.h"
 #include "apiutil.h"
+#include "eventchannel.h"
 #include "packets/refcount.h"
 #include "packets/IDs.h"
 #include "packets/commands.h"
@@ -160,6 +161,38 @@ clGetEventProfilingInfo(cl_event event, cl_profiling_info param_name,
 
 		return CL_SUCCESS;
 	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clSetEventCallback(cl_event event, cl_int command_exec_callback_type,
+                   CL_EVENT_CB pfn_event_notify,
+                   void *user_data) CL_API_SUFFIX__VERSION_1_0
+{
+	if (event == nullptr) return CL_INVALID_VALUE;
+
+	try {
+		auto conn = gConnection.get();
+
+		CLEventCallback &cb = conn.registerEventCallback(pfn_event_notify);
+
+		SetEventCallback E;
+		E.mID = cb.ID;
+		E.mEventID = GetID(event);
+		E.mCallbackType = command_exec_callback_type;
+
+		conn->write(E).flush();
+		conn->read<SuccessPacket>();
+
+		cb.event = event;
+		cb.callbackType = command_exec_callback_type;
+		cb.callback = pfn_event_notify;
+		cb.userData = user_data;
+		return CL_SUCCESS;
+	} catch (const ErrorPacket& e){
 		return e.mData;
 	} catch (...) {
 		return CL_DEVICE_NOT_AVAILABLE;

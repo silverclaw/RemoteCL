@@ -74,6 +74,8 @@ public:
 
 	void flush() { mStream.flush(); }
 
+	void shutdown() { mStream.shutdown(); }
+
 private:
 	/// The underlying buffer for the socket.
 	SocketStream mStream;

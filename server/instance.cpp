@@ -26,11 +26,13 @@
 #include "packets/device.h"
 #include "packets/IDs.h"
 #include "packets/payload.h"
+#include "packets/terminate.h"
 
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
 
-ServerInstance::ServerInstance(Socket socket) : mStream(std::move(socket))
+ServerInstance::ServerInstance(Socket commandSocket, Socket eventSocket) :
+mStream(std::move(commandSocket)), mEventStream(std::move(eventSocket))
 {
 	mStream.write<VersionPacket>({});
 	mStream.flush();
@@ -223,6 +225,9 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::SetUserEventStatus:
 			setUserEventStatus();
 			break;
+		case PacketType::SetEventCallback:
+			setEventCallback();
+			break;
 
 		case PacketType::Release:
 			handleRelease();
@@ -240,6 +245,7 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::Error:
 		case PacketType::IDList:
 		case PacketType::Version:
+		case PacketType::FireEventCallback:
 			// The client shouldn't send these packet types.
 			std::cerr << "Unexpected packet\n";
 			// This will terminate the connection with the client.
@@ -262,4 +268,7 @@ void ServerInstance::run()
 		}
 		mStream.flush();
 	} while (shouldContinue);
+
+	// let the client know it is okay to cleanup
+	mEventStream.write<TerminatePacket>({}).flush();
 }

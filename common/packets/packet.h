@@ -94,7 +94,11 @@ enum class PacketType : uint8_t
 	SetUserEventStatus,
 	GetEventInfo,
 	GetEventProfilingInfo,
+	SetEventCallback,
 	WaitEvents,
+
+	// Event backchannel.
+	FireEventCallback,
 
 	// Platform functions.
 	GetPlatformInfo,

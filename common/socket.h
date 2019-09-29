@@ -72,6 +72,8 @@ public:
 	Socket accept();
 	/// Closes this socket.
 	void close() noexcept;
+	/// Performs a socket shutdown.
+	void shutdown() noexcept;
 
 	/// Send this data burst (blocing).
 	void send(const void* data, std::size_t size);

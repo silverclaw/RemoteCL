@@ -53,7 +53,8 @@ int main(int argc, char* argv[])
 	// We don't care about child processes ending.
 	IgnoreSigChild();
 #endif
-	uint16_t port = Socket::DefaultPort;
+	uint16_t commandPort = Socket::DefaultPort;
+	uint16_t eventPort = commandPort + 1;
 	for (int i = 1; i < argc; ++i) {
 		// The only argument we currently support is "--port".
 		if (std::strcmp(argv[i], "--port") == 0) {
@@ -64,7 +65,8 @@ int main(int argc, char* argv[])
 			}
 			// Parse the next argument for a port number.
 			char* end;
-			port = std::strtoul(argv[i], &end, 10);
+			commandPort = std::strtoul(argv[i], &end, 10);
+			eventPort = commandPort + 1;
 			if (*end != '\0' || end == argv[i]) {
 				std::cerr << "Couldn't understand port number " << argv[i] << '\n';
 				return -1;
@@ -80,28 +82,32 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	std::clog << "Opening server port at " << port << '\n';
+	std::clog << "Opening server port at " << commandPort << '\n';
+	std::clog << "Listening for events on port " << eventPort << '\n';
 
 	try {
-		Socket server(port);
+		Socket commandServer(commandPort);
+		Socket eventServer(eventPort);
 
 		bool running = true;
 		do {
 			try {
-				Socket client = server.accept();
-				std::clog << "Incoming connection from " << client.getPeerName().data << '\n';
+				Socket commandClient = commandServer.accept();
+				Socket eventClient = eventServer.accept();
+				std::clog << "Incoming connection from " << commandClient.getPeerName().data << '\n';
 #if defined(REMOTECL_SERVER_USE_THREADS)
-				std::thread([](Socket socket){ServerInstance(std::move(socket)).run();},
+				std::thread([](Socket commandSocket, Socket eventSocket){ServerInstance(std::move(commandSocket), std::move(eventSocket)).run();},
 				            std::move(client)).detach();
 #else
 				pid_t child = fork();
 				if (child == 0) {
 					// The child must close the server socket.
-					server.close();
+					commandServer.close();
+					eventServer.close();
 					// The accept loop no longer makes sense.
 					running = false;
 					// off we go.
-					ServerInstance(std::move(client)).run();
+					ServerInstance(std::move(commandClient), std::move(eventClient)).run();
 					// This log message does not get printed if the
 					// instance dies through an exception.
 					std::clog << "Child instance " << getpid() << " exiting.\n";

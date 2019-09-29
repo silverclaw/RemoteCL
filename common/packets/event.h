@@ -25,11 +25,45 @@
 
 namespace RemoteCL
 {
+template<PacketType Type>
+struct EventCallback final : public Packet
+{
+	EventCallback() noexcept : Packet(Type) {}
+
+	// unique callback ID
+	uint32_t mID;
+
+	IDType mEventID;
+	int32_t mCallbackType;
+};
+
 using CreateUserEvent = SimplePacket<PacketType::CreateUserEvent, IDType>;
 using SetUserEventStatus = IDTypePair<PacketType::SetUserEventStatus, uint32_t>;
 using GetEventInfo = IDParamPair<PacketType::GetEventInfo>;
 using GetEventProfilingInfo = IDParamPair<PacketType::GetEventProfilingInfo>;
+using SetEventCallback = EventCallback<PacketType::SetEventCallback>;
+using FireEventCallback = SimplePacket<PacketType::FireEventCallback, uint32_t>;
 using WaitForEvents = SignalPacket<PacketType::WaitEvents>;
+
+template<PacketType Type>
+inline SocketStream& operator <<(SocketStream& o, const EventCallback<Type>& E)
+{
+	o << E.mID;
+	o << E.mEventID;
+	o << E.mCallbackType;
+
+	return o;
+}
+
+template<PacketType Type>
+inline SocketStream& operator >>(SocketStream& i, EventCallback<Type>& E)
+{
+	i >> E.mID;
+	i >> E.mEventID;
+	i >> E.mCallbackType;
+
+	return i;
+}
 }
 
 #endif
