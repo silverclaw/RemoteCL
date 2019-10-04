@@ -93,8 +93,48 @@ void ServerInstance::setUserEventStatus()
 
 void ServerInstance::getEventInfo()
 {
-	// Not supported yet
-	mStream.write<ErrorPacket>(CL_INVALID_OPERATION);
+	GetEventInfo packet = mStream.read<GetEventInfo>();
+	cl_event event = getObj<cl_event>(packet.mID);
+
+	union
+	{
+		cl_context context;
+		cl_command_queue queue;
+		cl_command_type type;
+		cl_int eventStatus;
+		cl_uint referenceCount;
+	} data;
+	size_t replySize = 0;
+	// All replies to getEventInfo will be at most sizeof(cl_ulong).
+	cl_int errCode = clGetEventInfo(event, packet.mData, sizeof(data), &data, &replySize);
+	if (Unlikely(errCode != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(errCode);
+		return;
+	}
+
+	// Data is encoded differently depending on request.
+	switch (packet.mData) {
+		case CL_EVENT_CONTEXT:
+			mStream.write<IDPacket>(getIDFor(data.context));
+			break;
+
+		case CL_EVENT_COMMAND_QUEUE:
+			mStream.write<IDPacket>(getIDFor(data.queue));
+			break;
+		case CL_EVENT_COMMAND_TYPE:
+			mStream.write<SimplePacket<PacketType::Payload, int32_t>>(data.type);
+			break;
+		case CL_EVENT_COMMAND_EXECUTION_STATUS:
+			mStream.write<SimplePacket<PacketType::Payload, int32_t>>(data.eventStatus);
+			break;
+		case CL_EVENT_REFERENCE_COUNT:
+			mStream.write<SimplePacket<PacketType::Payload, uint32_t>>(data.referenceCount);
+			break;
+		default:
+			// Should not happen - invalid request.
+			mStream.write<ErrorPacket>(CL_INVALID_OPERATION);
+			break;
+	}
 }
 
 void ServerInstance::getEventProfilingInfo()
@@ -104,7 +144,7 @@ void ServerInstance::getEventProfilingInfo()
 
 	SimplePacket<PacketType::Payload, uint64_t> reply;
 	size_t replySize = 0;
-	// All replies to getEventInfo will be sizeof(cl_ulong)
+	// All replies to getEventProfilingInfo will be sizeof(cl_ulong)
 	cl_int errCode = clGetEventProfilingInfo(event, packet.mData, sizeof(cl_ulong), &reply.mData, &replySize);
 	if (Unlikely(errCode != CL_SUCCESS)) {
 		mStream.write<ErrorPacket>(errCode);

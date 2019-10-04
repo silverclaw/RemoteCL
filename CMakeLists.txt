@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.3.0)
 # CMP0063 - respect the visibility policy for all targets.
 cmake_policy(SET CMP0063 NEW)
-project(RemoteCL LANGUAGES CXX VERSION 0.4)
+project(RemoteCL LANGUAGES CXX VERSION 0.5)
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	message(STATUS "No build type selected, defaulting to Debug.")

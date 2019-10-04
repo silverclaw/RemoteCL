@@ -61,7 +61,7 @@ KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
 	nullptr, //clGetKernelInfo,
 	nullptr, //clGetKernelWorkGroupInfo,
 	clWaitForEvents,
-	nullptr, //clGetEventInfo,
+	clGetEventInfo,
 	clRetainEvent,
 	clReleaseEvent,
 	nullptr, //clGetEventProfilingInfo,

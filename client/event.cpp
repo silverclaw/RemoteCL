@@ -139,6 +139,71 @@ clSetUserEventStatus(cl_event event, cl_int execution_status) CL_API_SUFFIX__VER
 }
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clGetEventInfo(cl_event event, cl_event_info param_name,
+               size_t  param_value_size, void* param_value,
+               size_t* param_value_size_ret) CL_API_SUFFIX__VERSION_1_0
+{
+	if (event == nullptr) return CL_INVALID_EVENT;
+
+	try {
+		IDType id = GetID(event);
+		auto conn = gConnection.get();
+		conn->write<GetEventInfo>({id, param_name});
+		conn->flush();
+
+		switch (param_name) {
+		case CL_EVENT_COMMAND_QUEUE: {
+			auto ID = conn->read<IDPacket>();
+			if (param_value_size_ret) *param_value_size_ret = sizeof(cl_command_queue);
+			if (param_value && param_value_size >= sizeof(cl_command_queue)) {
+				Queue* queue = conn.getObject<Queue>(ID.mData);
+				cl_command_queue cmdQueue = *queue;
+				std::memcpy(param_value, &cmdQueue, sizeof(cl_command_type));
+			}
+			break;
+		}
+		case CL_EVENT_CONTEXT:  {
+			auto ID = conn->read<IDPacket>();
+			if (param_value_size_ret) *param_value_size_ret = sizeof(cl_context);
+			if (param_value && param_value_size >= sizeof(cl_context)) {
+				Context* C = conn.getObject<Context>(ID.mData);
+				cl_context context = *C;
+				std::memcpy(param_value, &context, sizeof(cl_context));
+			}
+			break;
+		}
+
+		case CL_EVENT_COMMAND_TYPE: {
+			auto payload = conn->read<SimplePacket<PacketType::Payload, uint32_t>>();
+			if (param_value_size_ret) *param_value_size_ret = sizeof(cl_command_type);
+			if (param_value && param_value_size >= sizeof(cl_command_type)) {
+				cl_command_type type = static_cast<cl_command_type>(payload.mData);
+				std::memcpy(param_value, &type, sizeof(cl_command_type));
+			}
+			break;
+		}
+		case CL_EVENT_COMMAND_EXECUTION_STATUS:
+		case CL_EVENT_REFERENCE_COUNT:
+		default:
+			// The "default" should not trigger as the server would issue an error.
+			// All queries will fit in 32bits (a cl_int).
+			auto payload = conn->read<SimplePacket<PacketType::Payload, uint32_t>>();
+			if (param_value_size_ret) *param_value_size_ret = sizeof(uint32_t);
+			if (param_value && param_value_size >= sizeof(uint32_t)) {
+				std::memcpy(param_value, &payload.mData, sizeof(uint32_t));
+			}
+			break;
+		}
+
+		return CL_SUCCESS;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clGetEventProfilingInfo(cl_event event, cl_profiling_info param_name,
                         size_t param_value_size, void* param_value,
                         size_t* param_value_size_ret) CL_API_SUFFIX__VERSION_1_0
