@@ -182,10 +182,6 @@ Connection::Connection() noexcept
 
 Connection::~Connection()
 {
-#if defined(WIN32)
-	WSACleanup();
-#endif
-
 	mObjects.clear();
 	if (mStream) {
 		try {
@@ -195,4 +191,8 @@ Connection::~Connection()
 			// Ignore - the process is terminating.
 		}
 	}
+
+#if defined(WIN32)
+	WSACleanup();
+#endif
 }
