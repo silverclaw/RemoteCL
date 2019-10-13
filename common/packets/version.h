@@ -36,48 +36,34 @@ struct VersionPacket : public Packet
 		mVersion[i++] = ' ';
 		mVersion[i++] = sizeof(IDType);
 
+		assert(i == SWVersionSize);
+
 		// Append any enabled features
 #if defined(REMOTECL_USE_ZLIB)
 		mVersion[i++] = 'z';
+#endif
+#if defined(REMOTECL_ENABLE_ASYNC)
+		mVersion[i++] = 'e';
 #endif
 		mVersion[i++] = '\0';
 	}
 
 	/// Checks if these versions are compatible.
-	bool isCompatibleWith(const VersionPacket& v) const noexcept
-	{
-		// Client/server versions must match
-		std::size_t i = 0;
-		do {
-			if (mVersion[i] != v.mVersion[i]) {
-				return false;
-			}
-			++i;
-		} while (mVersion[i] != ' ' && v.mVersion[i] != ' ');
-		++i;
+	bool isCompatibleWith(const VersionPacket& v) const noexcept;
 
-		// Next is the size in bytes of the type used for Object IDs, which must match.
-		// In theory we could allow a different size, but we'd have to adjust the (de)serialiser
-		// of any packets that use IDType. Too much hassle; just reject different sizes.
-		if (mVersion[i] != v.mVersion[i]) return false;
-		++i;
-
-		// Additional features enabled must match.
-		// At current version, all enabled additional features must match.
-		do {
-			if (mVersion[i] != v.mVersion[i]) {
-				return false;
-			}
-			++i;
-		} while (mVersion[i] != '\0' && v.mVersion[i] != '\0');
-
-		return true;
-	}
+	/// Checks if this version packet contains the server back-connection enabled.
+	bool eventEnabled() const noexcept;
+	/// Checks if the compression feature is enabled.
+	bool compressionEnabled() const noexcept;
 
 	// Allow a total of 64 bytes to encode RemoteCL version and features.
 	// This should be sufficient. If more data is required in the future, a second
 	// version packet must be sent.
 	uint8_t mVersion[64] = {0};
+
+private:
+	/// Number of characters used for the SW version part of the packet.
+	static constexpr std::size_t SWVersionSize = 4;
 };
 
 inline SocketStream& operator <<(SocketStream& o, const VersionPacket& v)

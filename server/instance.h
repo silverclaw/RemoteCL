@@ -21,6 +21,10 @@
 #include "idtype.h"
 #include "socket.h"
 #include "packetstream.h"
+#include "CL/cl_platform.h"
+
+#include <mutex>
+#include <memory>
 
 namespace RemoteCL
 {
@@ -32,6 +36,9 @@ public:
 	ServerInstance(Socket socket);
 
 	void run();
+
+	/// Signals the client application that an event callback has triggered.
+	void triggerEventCallback(cl_int code, uint32_t callbackID) noexcept;
 
 private:
 	/// Waits for the next packet. Called continuously as long as it return true;
@@ -91,8 +98,16 @@ private:
 	void getEventInfo();
 	void getEventProfilingInfo();
 	void setUserEventStatus();
+	void registerEventCallback();
+
+	void createEventStream();
 
 	PacketStream mStream;
+
+	/// Used to serialise event signals.
+	std::mutex mEventMutex;
+	/// The event stream connection, if available.
+	std::unique_ptr<PacketStream> mEventStream;
 
 	/// Retrieves or assigns an ID for this object.
 	template<typename T>

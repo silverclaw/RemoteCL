@@ -16,8 +16,8 @@ The Windows builds have not been well tested. I've used the client library, but 
 
 ## Requirements
 Builds complete on Linux and Windows. I have successfully built with
-* GCC 5, 6, and 7 ( also cross-compiled to ARM, ARM64, and MIPS64)
-* Clang 5, 6, and 7
+* GCC 5, 6, 7, and 8 (also cross-compiled to ARM, ARM64, and MIPS64)
+* Clang 5, 6, 7, and 8
 * MSVC 19.14
 
 All you need is a C++11 capable compiler.
@@ -47,13 +47,17 @@ Using an unsupported feature will cause the CL call to return `CL_INVALID_OPERAT
 ## Building
 Standard CMake. There are no other dependencies, as the required [Khronos](https://www.khronos.org/) headers are in here (but you can use your own if you'd like). You can pick which Khronos headers to build against using the `KHR_INCLUDE_DIR` CMake option. By default, the build will use the shipped headers (see `external/README.md`).
 
-Under CMake, you can pick if you want to build the server, or the client, or both. Thus, if you're cross compiling, you may need to build only one of them.
+Under CMake, you can pick if you want to build the server, or the client, or both. Thus, if you're cross compiling, you only need to build only one of them.
 
 You can (should) set the OpenCL version you want to support (or the one supported by your platform) by setting `CL_TARGET_OPENCL_VERSION` (which defaults to 220). Attempting to support a version above the one your platform exposes might lead to link errors or runtime crashes.
 
 The server option `REMOTECL_SERVER_USE_THREADS` (default off) will make the server spawn a thread instead of forking the parent process when a connection is accepted. This decreases security as there is no memory separation as well as possibly being unsafe if one of the connections causes a crash (for example, on a wild pointer). It does, however, make it easier to debug without having to set up follow-child process.
 
 The option `REMOTECL_ENABLE_ZLIB` will make large data packets be zlib compressed before being sent through the network. The minimum size of the packet to be compressed is set in-source (see `packet/payload.h`). You may want to disable this if your cross-compile setup does not have zlib or if you're on a fast local network, where compressing would just waste time. Note that a server and client with different zlib configurations will not connect.
+
+The option `REMOTECL_ENABLE_ASYNC` enables the server-initiated packet stream socket. When set to `OFF`, the server is purely reactive to client-side requests and cannot notify the client of changes in the server status. When this option is enabled (the default), then the server can trigger events. This is required for OpenCL event callbacks, which will not be supported if this option is disabled (requests return CL_UNSUPPORTED_OPERATION). The server will attempt to open ports at random (for listening) and when it finds such a port, it gets the client to connect to it. If no port is available, features required by this socket will not be supported, but the other features will still function normally.
+This option is not protocol-breaking, and server/clients can connect when the support option mismatches.
+Enabling this option adds a dependency to a thread support library (C++11 threads).
 
 
 ### Cross-compiling
@@ -73,13 +77,13 @@ I wrote this project with some specific uses cases in mind. Because those use ca
 ## Known Limitations
 Obviously, the server won't have access to the client's filesystem. Thus, if you try to compile an OpenCL program that has a "#include" directive, that'll fail.
 
-Kernel printf will print server-side, but I it should be possible to redirect stdout to the packet stream. However, because the packet stream expects packets to arrive in a predefined order, I haven't implemented this (yet). See the callbacks limitation below.
+Kernel printf will print server-side, but I it should be possible to redirect stdout to the event packet stream.
 
-Event callbacks are not implemented. The packet stream expects packets to come and go in specified order and thus the stream can't have random packets being inserted. Also, the server currently has no way to signal the client that an event occurred. To resolve this, I probably need another socket (for unordered communication) and a thread constantly reading this. Using the out-of-band connection might work too?
-
-Endinaness is broken (untested?); don't mix ARM/x86.
+I've used this between Aarch64 and X86-64, and it seemed to work.
 
 Only IPv4 is supported. I haven't bothered doing IPv6 because I never needed it.
+
+Data sent over the wire is not encrypted (no TLS). If you're transferring sensitive data, you'll have to come up with some other way to secure your connection.
 
 
 ## Licence

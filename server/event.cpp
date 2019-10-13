@@ -17,6 +17,7 @@
 
 #include "CL/cl.h"
 
+#include "packets/callbacks.h"
 #include "packets/commands.h"
 #include "packets/IDs.h"
 #include "packets/event.h"
@@ -25,6 +26,54 @@
 
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
+
+namespace
+{
+struct CallbackBlock
+{
+	ServerInstance *instance;
+	/// Client-side ID for the callback.
+	IDType ID;
+};
+
+void CL_CALLBACK EventCallback(cl_event, cl_int code, void* data)
+{
+	CallbackBlock *block = reinterpret_cast<CallbackBlock*>(data);
+	block->instance->triggerEventCallback(code, block->ID);
+	// Block should probably be deleted here - we're currently leaking it.
+	// Is it possible for the same event to be executed more than once?
+}
+}
+
+void ServerInstance::triggerEventCallback(cl_int code, uint32_t callbackID) noexcept
+{
+	std::unique_lock<std::mutex> lock(mEventMutex);
+	// Tell the client there's an incoming event.
+	mEventStream->write<CallbackTriggerPacket>(callbackID);
+	// The client will dipatch to a handler which will receive this packet:
+	mEventStream->write<TriggerEventCallback>(code).flush();
+}
+
+void ServerInstance::registerEventCallback()
+{
+	try {
+		RegisterEventCallback P = mStream.read<RegisterEventCallback>();
+
+		cl_event event = getObj<cl_event>(P.mEventID);
+		// Create an event block
+		CallbackBlock *block = new CallbackBlock;
+		block->ID = P.mCallbackID;
+		block->instance = this;
+
+		cl_int err = clSetEventCallback(event, P.mCBType, EventCallback, reinterpret_cast<void*>(block));
+		if (Unlikely(err != CL_SUCCESS)) {
+			mStream.write<ErrorPacket>(err);
+		}
+		mStream.write<SuccessPacket>({});
+	} catch (...) {
+		mStream.write<ErrorPacket>(CL_OUT_OF_HOST_MEMORY);
+	}
+}
 
 void ServerInstance::enqueueKernel()
 {

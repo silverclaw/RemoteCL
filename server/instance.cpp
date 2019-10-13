@@ -20,12 +20,15 @@
 #include "CL/cl.h"
 
 #include "hints.h"
+#include "packets/callbacks.h"
 #include "packets/packet.h"
 #include "packets/version.h"
 #include "packets/platform.h"
 #include "packets/device.h"
 #include "packets/IDs.h"
 #include "packets/payload.h"
+#include "packets/event.h"
+#include "packets/terminate.h"
 
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
@@ -80,11 +83,56 @@ void ServerInstance::getPlatformInfo()
 	mStream.write(reply);
 }
 
+void ServerInstance::createEventStream()
+{
+	// Discard the packet - no payload.
+	mStream.read<OpenEventStream>();
+
+	std::unique_lock<std::mutex> lock(mEventMutex);
+
+	// Attempt to open a listening socket on a random port.
+	// Try 16 times.
+	uint8_t triesLeft = 16;
+	do {
+		triesLeft--;
+		try {
+			// Use the range 49152–65535 (ephemeral ports) which IANA does not reserve.
+			// This reduces the probability of clashes with other services.
+			const uint16_t PortMin = 49152;
+			const uint16_t PortMax = 65535;
+			uint16_t port = (std::rand()%((PortMax - PortMin) + 1)) + PortMin;
+			Socket socket(port);
+			// If the socket bind succeeds, tell the client this port.
+			// We won't be trying again anymore.
+			triesLeft = 0;
+			mStream.write<SimplePacket<PacketType::Payload, uint16_t>>(port).flush();
+			// There is a chance, however small, that the client will try to connect
+			// before we go into "accept()", but there's nothing we can do about it.
+			std::unique_ptr<PacketStream> stream(new PacketStream(socket.accept()));
+			// If opening the stream succeeded, replace the existing event stream.
+			mEventStream = std::move(stream);
+			return;
+		} catch (const Socket::Error&) {
+			// The socket failed to bind, we'll try again (maybe).
+		} catch (...) {
+			// any other error, we give up.
+			break;
+		}
+	} while (triesLeft != 0);
+
+	// Couldn't open a socket - tell the client to continue without one.
+	mStream.write<SimplePacket<PacketType::Payload, uint16_t>>(0);
+}
+
 bool ServerInstance::handleNextPacket()
 {
 	switch (mStream.nextPacketTy()) {
 		case PacketType::Terminate:
 			std::clog << "Client terminated connection. ";
+			if (mEventStream) {
+				mEventStream->write<TerminatePacket>({});
+				mEventStream.reset();
+			}
 			return false;
 
 		case PacketType::GetDeviceIDs:
@@ -231,8 +279,17 @@ bool ServerInstance::handleNextPacket()
 			handleRetain();
 			break;
 
+		case PacketType::RegisterEventCallback:
+			registerEventCallback();
+			break;
+
+		case PacketType::EventStreamOpen:
+			// This should only happen once, but not a real issue if called multiple times.
+			createEventStream();
+			break;
+
 		case PacketType:: Payload:
-			// Unexpected payloads need to be handled by the associated command processor.
+			// Payloads need to be handled by the associated command processor.
 			assert(false && "Unexpected payload");
 
 		case PacketType::ID:
@@ -240,6 +297,8 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::Error:
 		case PacketType::IDList:
 		case PacketType::Version:
+		case PacketType::CallbackTrigger:
+		case PacketType::EventCallbackTrigger:
 			// The client shouldn't send these packet types.
 			std::cerr << "Unexpected packet\n";
 			// This will terminate the connection with the client.

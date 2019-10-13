@@ -21,6 +21,7 @@
 #include "packets/refcount.h"
 #include "packets/IDs.h"
 #include "packets/commands.h"
+#include "packets/callbacks.h"
 #include "packets/event.h"
 #include "packets/simple.h"
 
@@ -29,6 +30,61 @@
 using namespace RemoteCL;
 using namespace RemoteCL::Client;
 
+
+namespace
+{
+using EventCallbackFn = void (CL_CALLBACK *) (cl_event, cl_int, void*);
+class EventCallback final : public Callback
+{
+public:
+	EventCallback(cl_event event, EventCallbackFn fn, void* userData) :
+		mEvent(event), mCallback(fn), mUserData(userData)
+	{}
+
+	void trigger(PacketStream& stream) noexcept override
+	{
+		cl_int code = stream.read<TriggerEventCallback>();
+		mCallback(mEvent, code, mUserData);
+	}
+
+private:
+	cl_event mEvent;
+	EventCallbackFn mCallback;
+	void *mUserData;
+};
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clSetEventCallback(cl_event event, cl_int command_exec_callback_type,
+                   void (CL_CALLBACK * pfn_notify )(cl_event, cl_int, void*),
+                   void* user_data) CL_API_SUFFIX__VERSION_1_1
+{
+	if (event == nullptr) return CL_INVALID_EVENT;
+	if (pfn_notify == nullptr) return CL_INVALID_VALUE;
+
+	if (!gConnection.hasEventStream()) {
+		return CL_INVALID_OPERATION;
+	}
+
+	try {
+		auto conn = gConnection.get();
+		std::unique_ptr<EventCallback> callBack(new EventCallback(event, pfn_notify, user_data));
+		uint32_t callbackID = conn.registerCallback(std::move(callBack));
+		RegisterEventCallback P;
+		P.mCallbackID = callbackID;
+		P.mEventID = GetID(event);
+		P.mCBType = command_exec_callback_type;
+		conn->write(P).flush();
+		conn->read<SuccessPacket>();
+		return CL_SUCCESS;
+	} catch (const std::bad_alloc&) {
+		return(CL_OUT_OF_HOST_MEMORY);
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
 
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clEnqueueNDRangeKernel(cl_command_queue command_queue, cl_kernel kernel,

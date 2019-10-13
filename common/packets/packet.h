@@ -111,6 +111,15 @@ enum class PacketType : uint8_t
 	/// A list of IDs, used to query platform and device IDs.
 	IDList,
 
+	/// Requests an event stream port.
+	EventStreamOpen,
+	/// Requests an event trigger.
+	CallbackTrigger,
+	// Event callback registration.
+	RegisterEventCallback,
+	/// Provides callback details about an Event Callback.
+	EventCallbackTrigger,
+
 	// Signals the server that the connection is about to be terminated.
 	Terminate = 0xFFu
 };

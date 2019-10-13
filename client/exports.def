@@ -57,6 +57,7 @@ clRetainEvent
 clRetainKernel
 clRetainMemObject
 clRetainProgram
+clSetEventCallback
 clSetKernelArg
 clSetUserEventStatus
 clWaitForEvents

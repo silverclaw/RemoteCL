@@ -1,6 +1,7 @@
 add_library(RemoteCL EXCLUDE_FROM_ALL STATIC
 	socket.cpp
-	socketstream.cpp)
+	socketstream.cpp
+	packets/version.cpp)
 
 if (WIN32)
 	target_link_libraries(RemoteCL wsock32 ws2_32)
@@ -15,6 +16,14 @@ if (ZLIB_FOUND)
 		target_link_libraries(RemoteCL ${ZLIB_LIBRARIES})
 	endif()
 endif (ZLIB_FOUND)
+
+option(REMOTECL_ENABLE_ASYNC "Enable server-side initiated communications, required for event callbacks." ON)
+if (REMOTECL_ENABLE_ASYNC)
+	target_compile_definitions(RemoteCL PUBLIC REMOTECL_ENABLE_ASYNC=1)
+	set(THREADS_PREFER_PTHREAD_FLAG ON)
+	find_package(Threads REQUIRED)
+	target_link_libraries(RemoteCL Threads::Threads)
+endif()
 
 option(REMOTECL_ENABLE_KEEPALIVE "Enables the TCP Socket keep-alive pings." ON)
 if (NOT REMOTECL_ENABLE_KEEPALIVE)

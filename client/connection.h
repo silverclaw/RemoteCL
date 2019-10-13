@@ -34,6 +34,15 @@ namespace Client
 struct CLObject;
 class LockedConnection;
 
+class Callback
+{
+public:
+	/// Trigger this callback, whatever it may do.
+	/// The stream provided is the event stream, not the API stream.
+	virtual void trigger(PacketStream&) noexcept = 0;
+	virtual ~Callback() = default;
+};
+
 /// Describes a client connection.
 /// This isn't meant to be used directly. Use get() to acquire a locked
 /// access handle.
@@ -45,11 +54,24 @@ public:
 	/// Acquire a locked handle to use the connection.
 	LockedConnection get();
 
+	/// Checks if the callback stream is available for callback registration.
+	bool hasEventStream() const noexcept
+	{
+		return mEventStream != nullptr;
+	}
+
 	~Connection();
 
 private:
 	friend class LockedConnection;
+	/// Data stream for regular CL API communication.
 	std::unique_ptr<PacketStream> mStream;
+	/// Data stream for server-side requests and notifications.
+	std::unique_ptr<PacketStream> mEventStream;
+	/// List of registered callbacks on the connection.
+	std::vector<std::unique_ptr<Callback>> mCallbacks;
+	/// Serialises accesses to mCallbacks.
+	std::mutex mCallbackMutex;
 	/// All of the objects that have been queried by the client.
 	/// Each will have a unique ID which is effectively an index into this vector.
 	std::vector<std::unique_ptr<CLObject>> mObjects;
@@ -102,6 +124,15 @@ public:
 		if (id < mParent.mObjects.size())
 			return *static_cast<ObjTy*>(mParent.mObjects[id].get());
 		return registerID<ObjTy>(id);
+	}
+
+	uint32_t registerCallback(std::unique_ptr<Callback> callback)
+	{
+		// This doesn't need to be done under a LockedConnection,
+		// but for API simplicity, leave it so.
+		std::unique_lock<std::mutex> lock(mParent.mCallbackMutex);
+		mParent.mCallbacks.emplace_back(std::move(callback));
+		return (mParent.mCallbacks.size()-1);
 	}
 
 	/// Send and receive packets through this connection.
