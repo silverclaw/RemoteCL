@@ -6,6 +6,8 @@
 # Refer to the README.md for the usual configure options:
 # ZLib is default enabled.
 ENABLE_ZLIB ?= 1
+# By default, enable the event stream
+ENABLE_EVENT_STREAM ?= 1
 # Where the Khronos headers are located.
 KHR_INCLUDE_DIR ?= external/khronos
 # Default CL version
@@ -19,7 +21,6 @@ CL_LIBRARY ?= OpenCL
 # By default, the server will use fork()
 USE_THREADS ?= 0
 
-
 # Default c++ compiler to use.
 CXX ?= g++
 # Default optimisation level.
@@ -28,7 +29,12 @@ CXXFLAGS ?= -O2 -fPIC -DNDEBUG
 AR ?= gcc-ar
 
 ifeq ($(ENABLE_ZLIB),1)
-	CXXFLAGS += -DENABLE_ZLIB
+	CXXFLAGS += -DREMOTECL_ENABLE_ZLIB
+endif
+
+ifeq ($(ENABLE_EVENT_STREAM),1)
+	CXXFLAGS += -DREMOTECL_ENABLE_ASYNC
+	CXXFLAGS += -pthread
 endif
 
 ifeq ($(USE_THREADS),1)
