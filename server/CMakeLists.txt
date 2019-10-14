@@ -13,16 +13,16 @@ add_executable(RemoteCLServer EXCLUDE_FROM_ALL
 	refcount.cpp
 	instance.cpp)
 
-option(REMOTECL_SERVER_USE_THREADS "Use a thread instead of fork() for the connection." OFF)
-
-if (REMOTECL_SERVER_USE_THREADS)
-	target_compile_definitions(RemoteCLServer PRIVATE REMOTECL_SERVER_USE_THREADS=1)
-	# Even when using C++11 threads, we still need to link pthread in.
-	if (NOT WIN32)
-		target_compile_options(RemoteCLServer PRIVATE -pthread)
-		target_link_libraries(RemoteCLServer RemoteCL pthread)
-	endif()
-endif (REMOTECL_SERVER_USE_THREADS)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads)
+if (Threads_FOUND)
+	option(REMOTECL_SERVER_USE_THREADS "Use a thread instead of fork() for the connection." OFF)
+	if (REMOTECL_SERVER_USE_THREADS)
+		target_compile_definitions(RemoteCLServer PRIVATE REMOTECL_SERVER_USE_THREADS=1)
+		# Even when using C++11 threads, we still need to link pthread in.
+		target_link_libraries(RemoteCLServer Threads::Threads)
+	endif (REMOTECL_SERVER_USE_THREADS)
+endif (Threads_FOUND)
 
 set(CL_TARGET_OPENCL_VERSION 220 CACHE STRING "Target OpenCL version for server.")
 if (${CL_TARGET_OPENCL_VERSION} LESS 120)
