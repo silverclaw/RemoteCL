@@ -32,8 +32,6 @@ void ServerInstance::createQueue()
 {
 	CreateQueue packet = mStream.read<CreateQueue>();
 
-	std::vector<cl_queue_properties> properties;
-
 	cl_context context = getObj<cl_context>(packet.mContext);
 	cl_device_id device = getObj<cl_device_id>(packet.mDevice);
 	cl_int retCode = CL_SUCCESS;
