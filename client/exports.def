@@ -2,6 +2,7 @@ EXPORTS
 
 clBuildProgram
 clCloneKernel
+clCompileProgram
 clCreateBuffer
 clCreateCommandQueue
 clCreateCommandQueueWithProperties
@@ -43,6 +44,7 @@ clGetPlatformInfo
 clGetProgramBuildInfo
 clGetProgramInfo
 clGetSupportedImageFormats
+clLinkProgram
 clReleaseCommandQueue
 clReleaseContext
 clReleaseDevice

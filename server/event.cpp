@@ -45,9 +45,10 @@ void CL_CALLBACK EventCallback(cl_event, cl_int code, void* data)
 }
 }
 
-void ServerInstance::triggerEventCallback(cl_int code, uint32_t callbackID) noexcept
+void ServerInstance::triggerEventCallback(cl_int code, IDType callbackID) noexcept
 {
 	std::unique_lock<std::mutex> lock(mEventMutex);
+	if (!mEventStream) return;
 	// Tell the client there's an incoming event.
 	mEventStream->write<CallbackTriggerPacket>(callbackID);
 	// The client will dipatch to a handler which will receive this packet:

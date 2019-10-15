@@ -38,7 +38,8 @@ public:
 	void run();
 
 	/// Signals the client application that an event callback has triggered.
-	void triggerEventCallback(cl_int code, uint32_t callbackID) noexcept;
+	void triggerEventCallback(cl_int code, IDType callbackID) noexcept;
+	void triggerProgramCallback(IDType callbackID) noexcept;
 
 private:
 	/// Waits for the next packet. Called continuously as long as it return true;
@@ -65,6 +66,8 @@ private:
 
 	void createProgramFromSource();
 	void createProgramFromBinary();
+	void compileProgram();
+	void linkProgram();
 	void buildProgram();
 	void getProgramBuildInfo();
 	void getProgramInfo();

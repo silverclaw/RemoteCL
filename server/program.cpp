@@ -17,6 +17,7 @@
 
 #include "CL/cl.h"
 
+#include "packets/callbacks.h"
 #include "packets/refcount.h"
 #include "packets/program.h"
 #include "packets/IDs.h"
@@ -24,8 +25,112 @@
 
 #include "hints.h"
 
+#include <vector>
+
 using namespace RemoteCL;
 using namespace RemoteCL::Server;
+
+namespace
+{
+struct CallbackBlock
+{
+	ServerInstance *instance;
+	/// Client-side ID for the callback.
+	IDType ID;
+};
+
+void CL_CALLBACK ProgramCallback(cl_program, void* data)
+{
+	CallbackBlock *block = reinterpret_cast<CallbackBlock*>(data);
+	block->instance->triggerProgramCallback(block->ID);
+	// Block should probably be deleted here - we're currently leaking it.
+	// Is it possible for the same event to be executed more than once?
+}
+
+using ProgramCallbackFn = void (CL_CALLBACK *) (cl_program, void*);
+}
+
+void ServerInstance::triggerProgramCallback(IDType callbackID) noexcept
+{
+	std::unique_lock<std::mutex> lock(mEventMutex);
+	if (!mEventStream) return;
+	// Tell the client there's an incoming event.
+	mEventStream->write<CallbackTriggerPacket>(callbackID);
+}
+
+void ServerInstance::compileProgram()
+{
+	CompileProgram packet = mStream.read<CompileProgram>();
+
+	cl_program program = getObj<cl_program>(packet.mProgramID);
+	std::vector<cl_device_id> devices;
+	devices.reserve(packet.mDeviceIDs.size());
+	for (auto ID : packet.mDeviceIDs) {
+		devices.push_back(getObj<cl_device_id>(ID));
+	}
+
+	std::vector<cl_program> headers;
+	headers.reserve(packet.mHeaderIDs.size());
+	for (auto ID : packet.mHeaderIDs) {
+		headers.push_back(getObj<cl_program>(ID));
+	}
+
+	std::vector<const char*> headerNames;
+	headerNames.reserve(packet.mHeaderIDs.size());
+	for (auto &name : packet.mHeaderNames) {
+		headerNames.push_back(name.c_str());
+	}
+
+	void* userData = nullptr;
+	ProgramCallbackFn fnPtr = nullptr;
+
+	if (packet.mHasCallback) {
+		auto* block = new CallbackBlock;
+		block->ID = packet.mCallbackID;
+		userData = static_cast<void*>(block);
+		fnPtr = &ProgramCallback;
+	}
+
+	cl_int err =
+		clCompileProgram(program, devices.size(), devices.data(),
+		                 packet.mOptions.c_str(), headers.size(),
+		                 headers.data(), headerNames.data(), fnPtr, userData);
+
+	if (Unlikely(err != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(err);
+	} else {
+		mStream.write<SuccessPacket>({});
+	}
+}
+
+void ServerInstance::linkProgram()
+{
+	LinkProgram packet = mStream.read<LinkProgram>();
+	cl_context context = getObj<cl_context>(packet.mContext);
+	std::vector<cl_device_id> devices;
+	devices.reserve(packet.mDeviceIDs.size());
+	for (auto ID : packet.mDeviceIDs) {
+		devices.push_back(getObj<cl_device_id>(ID));
+	}
+
+	std::vector<cl_program> programs;
+	programs.reserve(packet.mProgramIDs.size());
+	for (auto ID : packet.mProgramIDs) {
+		programs.push_back(getObj<cl_program>(ID));
+	}
+
+	cl_int err = CL_SUCCESS;
+	cl_program result =
+		clLinkProgram(context, devices.size(), devices.data(),
+		              packet.mOptions.c_str(), programs.size(),
+		              programs.data(), nullptr, nullptr, &err);
+
+	if (Unlikely(err != CL_SUCCESS)) {
+		mStream.write<ErrorPacket>(err);
+	} else {
+		mStream.write<IDPacket>(getIDFor(result));
+	}
+}
 
 void ServerInstance::buildProgram()
 {

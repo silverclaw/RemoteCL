@@ -72,6 +72,40 @@ struct CreateKernels final : public Packet
 	uint32_t mKernelCount;
 };
 
+struct CompileProgram final : public Packet
+{
+	CompileProgram() : Packet(PacketType::CompileProgram) {}
+
+	/// The ID of the parent program.
+	IDType mProgramID;
+	/// The build options specified.
+	std::string mOptions;
+	/// The list of target devices.
+	Serialiseable<std::vector<IDType>, uint8_t> mDeviceIDs;
+	/// The list of headers (cl_program IDs).
+	Serialiseable<std::vector<IDType>, uint8_t> mHeaderIDs;
+	/// The list of header names.
+	Serialiseable<std::vector<std::string>, uint8_t> mHeaderNames;
+	/// Has a callback been registered.
+	bool mHasCallback = false;
+	/// The registered callback ID.
+	IDType mCallbackID;
+};
+
+struct LinkProgram final : public Packet
+{
+	LinkProgram() : Packet(PacketType::LinkProgram) {}
+
+	/// The parent context.
+	IDType mContext;
+	/// The list of programs to link.
+	Serialiseable<std::vector<IDType>, uint8_t> mProgramIDs;
+	/// The list of target devices.
+	Serialiseable<std::vector<IDType>, uint8_t> mDeviceIDs;
+	/// The build options specified.
+	std::string mOptions;
+};
+
 using BinaryProgram = SimplePacket<PacketType::CreateBinaryProgram, IDType>;
 using ProgramSource = IDStringPair<PacketType::CreateSourceProgram>;
 using KernelName = IDStringPair<PacketType::CreateKernel>;
@@ -177,6 +211,50 @@ inline SocketStream& operator >>(SocketStream& i, CreateKernels& arg)
 {
 	i >> arg.mProgramID;
 	i >> arg.mKernelCount;
+	return i;
+}
+
+inline SocketStream& operator <<(SocketStream& o, const CompileProgram& arg)
+{
+	o << arg.mProgramID;
+	o << arg.mOptions;
+	o << arg.mDeviceIDs;
+	o << arg.mHeaderIDs;
+	o << arg.mHeaderNames;
+	o << arg.mHasCallback;
+	if (arg.mHasCallback)
+		o << arg.mCallbackID;
+	return o;
+}
+
+inline SocketStream& operator >>(SocketStream& i, CompileProgram& arg)
+{
+	i >> arg.mProgramID;
+	i >> arg.mOptions;
+	i >> arg.mDeviceIDs;
+	i >> arg.mHeaderIDs;
+	i >> arg.mHeaderNames;
+	i >> arg.mHasCallback;
+	if (arg.mHasCallback)
+		i >> arg.mCallbackID;
+	return i;
+}
+
+inline SocketStream& operator <<(SocketStream& o, const LinkProgram& arg)
+{
+	o << arg.mContext;
+	o << arg.mOptions;
+	o << arg.mDeviceIDs;
+	o << arg.mProgramIDs;
+	return o;
+}
+
+inline SocketStream& operator >>(SocketStream& i, LinkProgram& arg)
+{
+	i >> arg.mContext;
+	i >> arg.mOptions;
+	i >> arg.mDeviceIDs;
+	i >> arg.mProgramIDs;
 	return i;
 }
 }

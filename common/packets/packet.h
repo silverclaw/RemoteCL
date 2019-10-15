@@ -58,7 +58,9 @@ enum class PacketType : uint8_t
 	// Program functions.
 	CreateSourceProgram,
 	CreateBinaryProgram,
+	CompileProgram,
 	BuildProgram,
+	LinkProgram,
 	BuildInfo,
 	ProgramInfo,
 

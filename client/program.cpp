@@ -122,6 +122,146 @@ clCreateProgramWithBinary(cl_context context, cl_uint num_devices,
 	}
 }
 
+namespace
+{
+using ProgramCallbackFn = void (CL_CALLBACK *) (cl_program, void*);
+class ProgramCallback final : public Callback
+{
+public:
+	ProgramCallback(cl_program program, ProgramCallbackFn fn, void* userData) :
+		mProgram(program), mCallback(fn), mUserData(userData)
+	{}
+
+	void trigger(PacketStream&) noexcept override
+	{
+		mCallback(mProgram, mUserData);
+	}
+
+	void setProgram(cl_program program) noexcept {
+		assert(mProgram == nullptr);
+		mProgram = program;
+	}
+
+private:
+	cl_program mProgram;
+	ProgramCallbackFn mCallback;
+	void *mUserData;
+};
+}
+
+SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
+clCompileProgram(cl_program program, cl_uint num_devices, const cl_device_id* device_list,
+                 const char* options, cl_uint num_input_headers,
+                 const cl_program* input_headers, const char** header_include_names,
+                 void (CL_CALLBACK*  pfn_notify)(cl_program program, void* user_data),
+                 void* user_data) CL_API_SUFFIX__VERSION_1_2
+{
+	if (program == nullptr) return CL_INVALID_PROGRAM;
+	if (device_list == nullptr && num_devices > 0) return CL_INVALID_VALUE;
+	if (device_list != nullptr && num_devices == 0) return CL_INVALID_VALUE;
+	if (num_input_headers == 0) {
+		if (input_headers != nullptr) return CL_INVALID_VALUE;
+		if (header_include_names != nullptr) return CL_INVALID_VALUE;
+	} else {
+		if (input_headers == nullptr) return CL_INVALID_VALUE;
+		if (header_include_names == nullptr) return CL_INVALID_VALUE;
+	}
+	if (pfn_notify == nullptr && user_data != nullptr) return CL_INVALID_VALUE;
+
+	try {
+		CompileProgram packet;
+		packet.mProgramID = GetID(program);
+		if (options) packet.mOptions = options;
+		packet.mDeviceIDs.resize(num_devices);
+		for (cl_uint i = 0; i < num_devices; ++i) {
+			if (device_list[i] == nullptr) return CL_INVALID_DEVICE;
+			packet.mDeviceIDs[i] = GetID(device_list[i]);
+		}
+		packet.mHeaderIDs.reserve(num_input_headers);
+		packet.mHeaderNames.reserve(num_input_headers);
+		for (cl_uint i = 0; i < num_input_headers; ++i) {
+			if (input_headers[i] == nullptr) return CL_INVALID_VALUE;
+			if (header_include_names[i] == nullptr) return CL_INVALID_VALUE;
+			packet.mHeaderIDs[i] = GetID(input_headers[i]);
+			packet.mHeaderNames[i] = header_include_names[i];
+		}
+
+		auto conn = gConnection.get();
+		if (pfn_notify && gConnection.hasEventStream()) {
+			packet.mHasCallback = true;
+			std::unique_ptr<ProgramCallback> callback(new ProgramCallback(program, pfn_notify, user_data));
+			packet.mCallbackID = conn.registerCallback(std::move(callback));
+		}
+
+		conn->write(packet).flush();
+		conn->read<SuccessPacket>();
+
+		// If the callback was not sent to the server, trigger it now.
+		if (pfn_notify && !packet.mHasCallback) {
+			pfn_notify(program, user_data);
+		}
+
+		return CL_SUCCESS;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
+	} catch (const std::bad_alloc&) {
+		return CL_OUT_OF_HOST_MEMORY;
+	} catch (...) {
+		return CL_DEVICE_NOT_AVAILABLE;
+	}
+}
+
+SO_EXPORT CL_API_ENTRY cl_program CL_API_CALL
+clLinkProgram(cl_context context, cl_uint num_devices, const cl_device_id* device_list,
+              const char* options, cl_uint num_input_programs, const cl_program*  input_programs,
+              void (CL_CALLBACK* pfn_notify)(cl_program program, void * user_data),
+              void* user_data, cl_int* errcode_ret) CL_API_SUFFIX__VERSION_1_2
+{
+	if (context == nullptr) ReturnError(CL_INVALID_CONTEXT);
+	if (device_list == nullptr && num_devices > 0) ReturnError(CL_INVALID_VALUE);
+	if (device_list != nullptr && num_devices == 0) ReturnError(CL_INVALID_VALUE);
+	if (pfn_notify == nullptr && user_data != nullptr) ReturnError(CL_INVALID_VALUE);
+	if (num_input_programs == 0) ReturnError(CL_INVALID_VALUE);
+	if (input_programs == nullptr) ReturnError(CL_INVALID_VALUE);
+
+	try {
+		LinkProgram packet;
+		packet.mContext = GetID(context);
+		if (options) packet.mOptions = options;
+		packet.mDeviceIDs.resize(num_devices);
+		for (cl_uint i = 0; i < num_devices; ++i) {
+			if (device_list[i] == nullptr) ReturnError(CL_INVALID_DEVICE);
+			packet.mDeviceIDs[i] = GetID(device_list[i]);
+		}
+
+		packet.mProgramIDs.resize(num_input_programs);
+		for (cl_uint i = 0; i < num_input_programs; ++i) {
+			if (input_programs[i] == nullptr) ReturnError(CL_INVALID_VALUE);
+			packet.mProgramIDs[i] = GetID(input_programs[i]);
+		}
+
+		auto conn = gConnection.get();
+
+		conn->write(packet).flush();
+		Program& P = conn.registerID<Program>(conn->read<IDPacket>());
+
+		if (pfn_notify) {
+			// We can't ask the server to notify the client
+			// because we don't have a cl_program object to pass through.
+			// Just do it now.
+			pfn_notify(P, user_data);
+		}
+
+		return P;
+	} catch (const ErrorPacket& e) {
+		ReturnError(e.mData);
+	} catch (const std::bad_alloc&) {
+		ReturnError(CL_OUT_OF_HOST_MEMORY);
+	} catch (...) {
+		ReturnError(CL_DEVICE_NOT_AVAILABLE);
+	}
+}
+
 SO_EXPORT CL_API_ENTRY cl_int CL_API_CALL
 clBuildProgram(cl_program program, cl_uint num_devices, const cl_device_id* device_list,
                const char* options, void (CL_CALLBACK* pfn_notify)(cl_program, void*),
@@ -151,6 +291,8 @@ clBuildProgram(cl_program program, cl_uint num_devices, const cl_device_id* devi
 		conn->flush();
 		conn->read<SuccessPacket>();
 		return CL_SUCCESS;
+	} catch (const ErrorPacket& e) {
+		return e.mData;
 	} catch (const std::bad_alloc&) {
 		return CL_OUT_OF_HOST_MEMORY;
 	} catch (...) {

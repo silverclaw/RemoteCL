@@ -168,6 +168,12 @@ bool ServerInstance::handleNextPacket()
 		case PacketType::CreateBinaryProgram:
 			createProgramFromBinary();
 			break;
+		case PacketType::CompileProgram:
+			compileProgram();
+			break;
+		case PacketType::LinkProgram:
+			linkProgram();
+			break;
 		case PacketType::BuildProgram:
 			buildProgram();
 			break;
