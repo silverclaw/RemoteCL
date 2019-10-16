@@ -207,7 +207,9 @@ void ServerInstance::getImageInfo()
 				mStream.write<ErrorPacket>(err);
 				return;
 			}
-			mStream.write<IDPacket>({getIDFor(parent)});
+			IDType result = ~static_cast<IDType>(0);
+			if (parent) result = getIDFor(parent);
+			mStream.write<IDPacket>({result});
 			break;
 		}
 

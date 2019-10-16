@@ -255,8 +255,14 @@ clGetImageInfo(cl_mem image, cl_image_info param_name, size_t param_value_size,
 
 		switch (param_name) {
 			case CL_IMAGE_BUFFER: {
-				MemObject& id = conn.getOrInsertObject<MemObject>(conn->read<IDPacket>());
-				Store<cl_mem>(id, param_value, param_value_size, param_value_size_ret);
+				IDType result = conn->read<IDPacket>();
+				constexpr IDType invalid = ~static_cast<IDType>(0);
+				if (result != invalid) {
+					MemObject& id = conn.getOrInsertObject<MemObject>(result);
+					Store<cl_mem>(id, param_value, param_value_size, param_value_size_ret);
+				} else {
+					Store<cl_mem>(nullptr, param_value, param_value_size, param_value_size_ret);
+				}
 				break;
 			}
 
