@@ -225,9 +225,9 @@ clEnqueueReadBufferRect(cl_command_queue command_queue, cl_mem buffer, cl_bool b
 		E.mRegion[1] = region[1];
 		E.mRegion[2] = region[2];
 		E.mBufferRowPitch = buffer_row_pitch;
-		E.mBufferRowPitch = buffer_slice_pitch;
-		E.mBufferRowPitch = host_row_pitch;
-		E.mBufferRowPitch = host_slice_pitch;
+		E.mBufferSlicePitch = buffer_slice_pitch;
+		E.mHostRowPitch = host_row_pitch;
+		E.mHostSlicePitch = host_slice_pitch;
 		E.mQueueID = GetID(command_queue);
 
 		auto conn = gConnection.get();
