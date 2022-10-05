@@ -17,7 +17,7 @@
 #define REMOTECL_CLIENT_OBJECTS_H
 
 #include "CL/cl_platform.h"
-#include "CL/icd_dispatch.h"
+#include "CL/cl_icd.h"
 
 #include "idtype.h"
 
@@ -37,7 +37,7 @@ struct CLObject
 	const IDType ID;
 };
 
-extern KHRicdVendorDispatch OCLDispatchTable;
+extern cl_icd_dispatch OCLDispatchTable;
 
 /// Wraps this internal type around the ICD dispatchable structure.
 /// The ICD dispatch object contains a pointer to the dispatch table as the first
@@ -46,7 +46,7 @@ extern KHRicdVendorDispatch OCLDispatchTable;
 template<typename InternalType>
 struct MakeDispatchable
 {
-	KHRicdVendorDispatch* dispatchTable;
+	cl_icd_dispatch* dispatchTable;
 	InternalType* ptr;
 };
 

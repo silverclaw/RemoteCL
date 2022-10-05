@@ -17,7 +17,7 @@
 /// Defines the ICD dispatch table.
 #include "objects.h"
 
-KHRicdVendorDispatch RemoteCL::Client::OCLDispatchTable =
+cl_icd_dispatch RemoteCL::Client::OCLDispatchTable =
 {
 	clGetPlatformIDs,
 	clGetPlatformInfo,

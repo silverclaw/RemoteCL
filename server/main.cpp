@@ -21,7 +21,6 @@
 #else
 #include <unistd.h> // for fork()
 #include <signal.h>
-#include <bits/signum.h>
 #endif
 #include <system_error>
 

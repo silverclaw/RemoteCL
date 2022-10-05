@@ -8,7 +8,19 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)." FORCE)
 endif()
 
-set(KHR_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/khronos/" CACHE PATH "Path to the Khronos headers.")
+
+find_package(OpenCLHeaders)
+if (NOT OpenCLHeaders_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        OpenCLHeaders
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers.git
+        GIT_TAG        main
+    )
+    FetchContent_MakeAvailable(OpenCLHeaders)
+endif()
+
+get_target_property(KHR_INCLUDE_DIR OpenCL::Headers INTERFACE_INCLUDE_DIRECTORIES)
 
 find_program(CCACHE_BIN ccache DOC "Path to CCache binary")
 if (CCACHE_BIN)
