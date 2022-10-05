@@ -16,7 +16,7 @@ The Windows builds have not been well tested. I've used the client library, but 
 
 ## Requirements
 Builds complete on Linux and Windows. I have successfully built with
-* GCC 5, 6, 7, and 8 (also cross-compiled to ARM, ARM64, and MIPS64)
+* GCC 5, 6, 7, 8, and 11.3 (also cross-compiled to ARM, ARM64, and MIPS64)
 * Clang 5, 6, 7, and 8
 * MSVC 19.14
 
@@ -45,7 +45,7 @@ Using an unsupported feature will cause the CL call to return `CL_INVALID_OPERAT
 
 
 ## Building
-Standard CMake. There are no other dependencies, as the required [Khronos](https://www.khronos.org/) headers are in here (but you can use your own if you'd like). You can pick which Khronos headers to build against using the `KHR_INCLUDE_DIR` CMake option. By default, the build will use the shipped headers (see `external/README.md`).
+Standard CMake. The required OpenCL headers will be automatically downloaded by CMake during the configuration step, if they are not available on the host machine. These are downloaded directly from Khronos' [github](https://github.com/KhronosGroup/OpenCL-Headers.git).
 
 Under CMake, you can pick if you want to build the server, or the client, or both. Thus, if you're cross compiling, you only need to build only one of them.
 
