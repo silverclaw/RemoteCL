@@ -15,16 +15,16 @@ The Windows builds have not been well tested. I've used the client library, but 
 
 
 ## Requirements
-Builds complete on Linux and Windows. I have successfully built with
-* GCC 5, 6, 7, 8, and 11.3 (also cross-compiled to ARM, ARM64, and MIPS64)
-* Clang 5, 6, 7, and 8
-* MSVC 19.14
+Builds complete on Mac, Linux, and Windows. I have successfully built with
+* GCC 13 (also cross-compiled to ARM64)
+* Clang 15
+* MSVC 19.14 (not tested for a while though)
 
 All you need is a C++11 capable compiler.
 
 The server and clients can be built separately.
 
-The build will attempt to link the server binary with a libOpenCL.so; thus, if you're cross-compiling, you'll need that available.
+The build will attempt to link the server binary with a libOpenCL.so. If a system library is not available, the build will pull in Khronos' OpenCL ICD loader and use that.
 You won't need to fetch any further dependencies, but you'll obviously need a network sockets implementation which should be available on your system already.
 
 ZLib is an optional dependency, If enabled, large data transfers are compressed before being sent over the network.
@@ -63,7 +63,7 @@ Enabling this option adds a dependency to a thread support library (C++11 thread
 ### Cross-compiling
 Nothing special, use standard CMake cross-compilation.
 
-Note that to build a cross-compiled Server you'll need the target OpenCL implementation library available for linking. You may need to set `CMAKE_EXE_LINKER_FLAGS` to `-L/some/path` and change the `CL_LIBRARY` if necessary, depending on your cross-compilation setup.
+Note that the Khronos' OpenCL ICD loader will be used if your cross-compile environment does not have an OpenCL library available.
 
 ### Cross-platform requirements
 The Server uses either C++11 threads or fork(). Obviously, the default configuration of using fork will not be cross-platform.

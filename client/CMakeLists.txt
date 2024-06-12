@@ -26,8 +26,7 @@ target_compile_definitions(RemoteCLClient PRIVATE
 target_compile_definitions(RemoteCLClient PRIVATE CL_TARGET_OPENCL_VERSION=220)
 
 # The CL header spams warnings, so silence them by setting it as a system include.
-target_include_directories(RemoteCLClient SYSTEM PRIVATE ${KHR_INCLUDE_DIR})
-target_link_libraries(RemoteCLClient RemoteCL)
+target_link_libraries(RemoteCLClient PRIVATE RemoteCL OpenCL::Headers)
 target_include_directories(RemoteCLClient PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (WIN32)

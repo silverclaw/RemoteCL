@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.3.0)
+cmake_minimum_required(VERSION 3.7.0)
 # CMP0063 - respect the visibility policy for all targets.
 cmake_policy(SET CMP0063 NEW)
 project(RemoteCL LANGUAGES CXX VERSION 0.6)
@@ -19,8 +19,6 @@ if (NOT OpenCLHeaders_FOUND)
     )
     FetchContent_MakeAvailable(OpenCLHeaders)
 endif()
-
-get_target_property(KHR_INCLUDE_DIR OpenCL::Headers INTERFACE_INCLUDE_DIRECTORIES)
 
 find_program(CCACHE_BIN ccache DOC "Path to CCache binary")
 if (CCACHE_BIN)

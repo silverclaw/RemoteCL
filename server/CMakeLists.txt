@@ -20,7 +20,7 @@ if (Threads_FOUND)
 	if (REMOTECL_SERVER_USE_THREADS)
 		target_compile_definitions(RemoteCLServer PRIVATE REMOTECL_SERVER_USE_THREADS=1)
 		# Even when using C++11 threads, we still need to link pthread in.
-		target_link_libraries(RemoteCLServer Threads::Threads)
+		target_link_libraries(RemoteCLServer PRIVATE Threads::Threads)
 	endif (REMOTECL_SERVER_USE_THREADS)
 endif (Threads_FOUND)
 
@@ -35,10 +35,21 @@ if (NOT WIN32)
 	# deprecation warnings; we still want to expose the functionality, so ignore those.
 	target_compile_options(RemoteCLServer PRIVATE -Wno-deprecated-declarations)
 endif (NOT WIN32)
-target_include_directories(RemoteCLServer SYSTEM PRIVATE ${KHR_INCLUDE_DIR})
+
+find_package(OpenCL)
+if (NOT OpenCL_FOUND)
+	include(FetchContent)
+    FetchContent_Declare(
+        OpenCLICD
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
+        GIT_TAG        main
+    )
+    FetchContent_MakeAvailable(OpenCLICD)
+endif()
+
 # The CL header spams warnings, so silence them by setting it as a system include.
 set(CL_LIBRARY "OpenCL" CACHE FILEPATH "The OpenCL library used by server.")
-target_link_libraries(RemoteCLServer RemoteCL ${CL_LIBRARY})
+target_link_libraries(RemoteCLServer PRIVATE RemoteCL OpenCL::Headers OpenCL::OpenCL)
 
 set_target_properties(RemoteCLServer PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 
