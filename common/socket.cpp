@@ -20,7 +20,7 @@
 #include <iostream>
 #include "hints.h"
 
-#if defined(WIN32)
+#if defined(_MSC_VER)
 	#include <WinSock2.h>
 	#include <WS2tcpip.h>
 #else
@@ -71,11 +71,11 @@ RemoteCL::Socket::Socket()
 		throw Error();
 	}
 #if !defined(REMOTECL_DISABLE_KEEP_ALIVE)
-#if defined(WIN32)
+#if defined(_MSC_VER)
 	using ValTy = const char*;
 #else // everyone else
 	using ValTy = const void*;
-#endif // WIN32
+#endif // _MSC_VER
 	int val = -1;
 	int result = setsockopt(mSocket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<ValTy>(&val), sizeof(val));
 	if (result != 0) {
@@ -181,7 +181,7 @@ Socket::PeerName RemoteCL::Socket::getPeerName() noexcept
 void RemoteCL::Socket::close() noexcept
 {
 	assert(mSocket != InvalidSocket);
-#if !defined(WIN32)
+#if !defined(_MSC_VER)
 #define closesocket(X) ::close(X)
 #endif
 	closesocket(mSocket);

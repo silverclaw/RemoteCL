@@ -111,7 +111,7 @@ Connection::Connection() noexcept
 		uint16_t port = Socket::DefaultPort;
 		std::string serverName = DEFAULT_REMOTE_HOST;
 
-#if defined(WIN32)
+#if defined(_MSC_VER)
 		WSADATA wsaData;
 		if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
 			std::cerr << "Windows sockets failed to initialise." << std::endl;
@@ -192,7 +192,7 @@ Connection::~Connection()
 		}
 	}
 
-#if defined(WIN32)
+#if defined(_MSC_VER)
 	WSACleanup();
 #endif
 }

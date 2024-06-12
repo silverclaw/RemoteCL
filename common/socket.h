@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <utility> // for std::swap
 
-#if defined(WIN32)
+#if defined(_MSC_VER)
 #include <WinSock2.h>
 #endif
 
@@ -31,7 +31,7 @@ namespace RemoteCL
 class Socket
 {
 public:
-#if !defined(WIN32)
+#if !defined(_MSC_VER)
 	using SocketTy = int;
 	static constexpr SocketTy InvalidSocket = -1;
 #else
