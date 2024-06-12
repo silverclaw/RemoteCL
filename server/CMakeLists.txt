@@ -16,12 +16,17 @@ add_executable(RemoteCLServer EXCLUDE_FROM_ALL
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
 if (Threads_FOUND)
-	option(REMOTECL_SERVER_USE_THREADS "Use a thread instead of fork() for the connection." OFF)
-	if (REMOTECL_SERVER_USE_THREADS)
-		target_compile_definitions(RemoteCLServer PRIVATE REMOTECL_SERVER_USE_THREADS=1)
-		# Even when using C++11 threads, we still need to link pthread in.
-		target_link_libraries(RemoteCLServer PRIVATE Threads::Threads)
-	endif (REMOTECL_SERVER_USE_THREADS)
+	# MSVC does not have fork() so it is forced to use threads.
+	if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+		target_compile_definitions(RemoteCLServer PRIVATE REMOTECL_SERVER_USE_THREADS)
+	else ()
+		option(REMOTECL_SERVER_USE_THREADS "Use a thread instead of fork() for the connection." OFF)
+		if (REMOTECL_SERVER_USE_THREADS)
+			target_compile_definitions(RemoteCLServer PRIVATE REMOTECL_SERVER_USE_THREADS)
+			# Even when using C++11 threads, we still need to link pthread in.
+			target_link_libraries(RemoteCLServer PRIVATE Threads::Threads)
+		endif (REMOTECL_SERVER_USE_THREADS)
+	endif()
 endif (Threads_FOUND)
 
 set(CL_TARGET_OPENCL_VERSION 220 CACHE STRING "Target OpenCL version for server.")
